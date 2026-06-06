@@ -591,13 +591,7 @@
     </table>
   </div>
 
-  <div class="panel" style="margin-bottom:44px">
-    <div class="panel-head">
-      <div class="panel-title">YoY Growth % by Metric</div>
-      <span class="tag tag-green">LY → CY</span>
-    </div>
-    <div class="chart-body" id="barChart" style="padding:24px 32px"></div>
-  </div>
+
 
 </main>
 
@@ -1204,29 +1198,7 @@ drawGaugeAnimated('gYield',  3);   // Yield: 2.06% growth
 drawGaugeAnimated('gHR',    19);   // HR: 19% good
 drawGaugeAnimated('gMat',    1);   // Material: 1% (cost decreased)
 
-/* ── Horizontal bars ── */
-const hBars = [
-  { label:'X-Tk Revenue',       pct:58, color:'#1a3c8f' },
-  { label:'Productivity',       pct:13, color:'#b7860b' },
-  { label:'Yield %',            pct:2,  color:'#1d8348' },
-  { label:'T-Ton Volume',       pct:20, color:'#1a3c8f' },
-  { label:'Materials Cost',     pct:1,  color:'#1d8348' },
-  { label:'Conversion Cost/Kg', pct:17, color:'#b7860b' },
-  { label:'Utility Cost/Kg',    pct:15, color:'#2d5be3' },
-  { label:'Maintenance/Kg',     pct:8,  color:'#2c3a55' },
-  { label:'HR Nos',             pct:19, color:'#1d8348' },
-  { label:'HR Cost / Kg',       pct:1,  color:'#2c3a55' },
-];
-const bc = document.getElementById('barChart');
-hBars.forEach((b,i)=>{
-  const pc = b.pct>=30?'#1d8348':b.pct>=15?'#1a3c8f':b.pct>=8?'#b7860b':'#2c3a55';
-  bc.innerHTML+=`<div class="bar-row">
-    <div class="bar-label">${b.label}</div>
-    <div class="bar-track"><div class="bar-fill" id="hb${i}" style="background:${b.color}"></div></div>
-    <div class="bar-pct" style="color:${pc}">${b.pct}%</div>
-  </div>`;
-});
-setTimeout(()=>{ hBars.forEach((b,i)=>{ setTimeout(()=>{ const el=document.getElementById('hb'+i); if(el) el.style.width=b.pct+'%'; },100+i*60); }); },400);
+
 </script>
 
 <!-- ══════════════════════════════════════════════════
@@ -1477,32 +1449,6 @@ function refreshDashboard() {
     });
   }
 
-  // ── Horizontal bars — rebuild from DASH.rows ──
-  const bc2 = document.getElementById('barChart');
-  if (bc2) {
-    // hBarMap: order of bars → row index in DASH.rows
-    const hBarMap = [0,2,8,1,7,9,5,6,3,4];
-    const hBarLabels = ['X-Tk Revenue','Productivity','Yield %','T-Ton Volume','Materials Cost','Conversion Cost/Kg','Utility Cost/Kg','Maintenance/Kg','HR Nos','HR Cost / Kg'];
-    const hBarColors = ['#1a3c8f','#b7860b','#1d8348','#1a3c8f','#1d8348','#b7860b','#2d5be3','#2c3a55','#1d8348','#2c3a55'];
-    bc2.innerHTML = '';
-    hBarMap.forEach((ri, idx) => {
-      const rawG = parseFloat(((rows[ri].cy - rows[ri].ly) / Math.abs(rows[ri].ly) * 100).toFixed(1));
-      const pct = Math.abs(rawG);
-      const pc = pct>=30?'#1d8348':pct>=15?'#1a3c8f':pct>=8?'#b7860b':'#2c3a55';
-      bc2.innerHTML += `<div class="bar-row">
-        <div class="bar-label">${hBarLabels[idx]}</div>
-        <div class="bar-track"><div class="bar-fill" id="rhb${idx}" style="background:${hBarColors[idx]};width:0%"></div></div>
-        <div class="bar-pct" style="color:${pc}">${pct.toFixed(1)}%</div>
-      </div>`;
-    });
-    setTimeout(()=>{
-      hBarMap.forEach((ri, idx) => {
-        const rawG = parseFloat(((rows[ri].cy - rows[ri].ly) / Math.abs(rows[ri].ly) * 100).toFixed(1));
-        const pct = Math.min(Math.abs(rawG), 100);
-        setTimeout(()=>{ const el=document.getElementById('rhb'+idx); if(el) el.style.width=pct+'%'; }, 80+idx*60);
-      });
-    }, 100);
-  }
 }
 </script>
 </body>
