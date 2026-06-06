@@ -639,7 +639,22 @@ function downloadExcel(btn) {
 }
 
 /* ══════════════════════════════════════════════════
-   DOWNLOAD POWERPOINT
+   DOWNLOAD POWERPOINT  — mirrors the UI exactly
+   UI Sections → Slides:
+     1.  Title Slide
+     2.  KPI Cards (4 primary + 4 secondary)
+     3.  X-Tk Revenue — Bar Chart + Growth %
+     4.  T-Ton Volume — Bar Chart + Growth %
+     5.  Productivity (Kg/Man-Hr) — Bar Chart + Growth %
+     6.  Conversion Cost / Kg — Bar Chart + Growth %
+     7.  All 10 Metrics — YoY Growth % (Full-width bar)
+     8.  Cost Breakdown / Kg — Doughnut + Summary Table
+     9.  Yield % — Bar Chart + Growth %
+    10.  HR Headcount & Cost — Bar Charts
+    11.  Materials Cost % — Bar Chart + Growth %
+    12.  Full Performance Data Table
+    13.  YoY Growth Ranking — Horizontal Bars
+    14.  Key Takeaways / Summary
    ══════════════════════════════════════════════════ */
 async function downloadPPT(btn) {
   const orig = btn.innerHTML;
@@ -647,7 +662,6 @@ async function downloadPPT(btn) {
 
   const today = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 
-  // ── Palette ──
   const C = {
     white : 'FFFFFF',
     light : 'F4F6FB',
@@ -664,8 +678,8 @@ async function downloadPPT(btn) {
   };
 
   const FONT = 'Calibri';
+  const lyHex = 'A8C4E8';
 
-  // Helper: solid header bar (dark blue)
   function addHeader(slide, title, sub) {
     slide.addShape(pres.shapes.RECTANGLE, {
       x:0, y:0, w:13.33, h:0.85,
@@ -683,14 +697,12 @@ async function downloadPPT(btn) {
       x:0.38, y:0.5, w:10, h:0.3,
       fontSize:10, color:'8FA8D0', fontFace:FONT, italic:true
     });
-    // page label top-right
     slide.addText('RAJ-PAL · ' + today, {
       x:9, y:0.55, w:4.1, h:0.25,
       fontSize:9, color:'6080A0', fontFace:FONT, align:'right'
     });
   }
 
-  // Helper: footer band
   function addFooter(slide, note) {
     slide.addShape(pres.shapes.RECTANGLE, {
       x:0, y:7.3, w:13.33, h:0.2,
@@ -702,30 +714,24 @@ async function downloadPPT(btn) {
     });
   }
 
-  // Helper: KPI mini-card
   function addKpiCard(slide, x, y, w, h, accentColor, label, value, growth, growthGood) {
-    // card bg
     slide.addShape(pres.shapes.RECTANGLE, {
       x, y, w, h,
       fill:{color:C.white}, line:{color:C.border, pt:0.8},
       shadow:{type:'outer', blur:6, offset:2, angle:135, color:'000000', opacity:0.07}
     });
-    // accent top bar
     slide.addShape(pres.shapes.RECTANGLE, {
       x, y, w:w, h:0.055,
       fill:{color:accentColor}, line:{color:accentColor}
     });
-    // label
     slide.addText(label, {
       x:x+0.1, y:y+0.1, w:w-0.2, h:0.22,
       fontSize:8, color:C.muted, fontFace:FONT, bold:true, charSpacing:0.5
     });
-    // value
     slide.addText(String(value), {
       x:x+0.1, y:y+0.32, w:w-0.2, h:0.52,
       fontSize:20, bold:true, color:accentColor, fontFace:FONT
     });
-    // growth badge
     const gcol = growthGood ? C.green : C.red;
     const sign = growth >= 0 ? '▲' : '▼';
     slide.addText(sign + ' ' + Math.abs(growth) + '% vs LY', {
@@ -734,320 +740,219 @@ async function downloadPPT(btn) {
     });
   }
 
+  // Helper: single metric bar+growth slide
+  function addMetricSlide(title, sub, rowIdx, accentColor, chartTitle, tag) {
+    const sl = pres.addSlide();
+    sl.background = { color: C.white };
+    addHeader(sl, title, sub);
+    addFooter(sl);
+
+    const r = DASH.rows[rowIdx];
+    const g = rowGrowth(r);
+    const good = isGoodGrowth(rowIdx, g);
+
+    // Bar chart (left 2/3)
+    sl.addChart(pres.charts.BAR, [
+      { name:'Last Year (LY)',    labels:[chartTitle], values:[r.ly] },
+      { name:'Current Year (CY)', labels:[chartTitle], values:[r.cy] },
+    ], {
+      x:0.28, y:1.0, w:8.5, h:6.1,
+      barDir:'col', barGapWidthPct:55,
+      chartColors:[ lyHex, accentColor ],
+      chartArea:{ fill:{color:C.white} },
+      catAxisLabelColor:C.muted, valAxisLabelColor:C.muted,
+      valGridLine:{color:'E2E8F0',size:0.5}, catGridLine:{style:'none'},
+      showValue:true, dataLabelColor:C.deep, dataLabelFontSize:11, dataLabelFontBold:true,
+      legendPos:'b', showLegend:true,
+      showTitle:true, title:chartTitle, titleFontSize:12, titleColor:C.deep, titleFontBold:true,
+    });
+
+    // Right panel: KPI summary
+    const gcol = good ? C.green : C.red;
+    const arrow = g >= 0 ? '▲' : '▼';
+    sl.addShape(pres.shapes.RECTANGLE, {
+      x:9.1, y:1.0, w:4.0, h:6.1,
+      fill:{color:C.light}, line:{color:C.border, pt:0.8}
+    });
+    sl.addShape(pres.shapes.RECTANGLE, {
+      x:9.1, y:1.0, w:4.0, h:0.06,
+      fill:{color:accentColor}, line:{color:accentColor}
+    });
+    sl.addText('Last Year (LY)', {
+      x:9.2, y:1.2, w:3.8, h:0.28,
+      fontSize:9, color:C.muted, fontFace:FONT, bold:true
+    });
+    sl.addText(String(r.ly) + (r.unit==='%'?'%':''), {
+      x:9.2, y:1.48, w:3.8, h:0.65,
+      fontSize:26, bold:true, color:C.muted, fontFace:FONT
+    });
+    sl.addText('Current Year (CY)', {
+      x:9.2, y:2.28, w:3.8, h:0.28,
+      fontSize:9, color:C.muted, fontFace:FONT, bold:true
+    });
+    sl.addText(String(r.cy) + (r.unit==='%'?'%':''), {
+      x:9.2, y:2.56, w:3.8, h:0.65,
+      fontSize:32, bold:true, color:accentColor, fontFace:FONT
+    });
+    sl.addShape(pres.shapes.RECTANGLE, {
+      x:9.1, y:3.4, w:4.0, h:0.01,
+      fill:{color:C.border}, line:{color:C.border}
+    });
+    sl.addText('YoY Growth', {
+      x:9.2, y:3.55, w:3.8, h:0.28,
+      fontSize:9, color:C.muted, fontFace:FONT, bold:true
+    });
+    sl.addText(arrow + ' ' + Math.abs(g) + '%', {
+      x:9.2, y:3.83, w:3.8, h:0.75,
+      fontSize:38, bold:true, color:gcol, fontFace:FONT
+    });
+    // Performance zone
+    let zone = 'Excellent';
+    if (Math.abs(g) < 10) zone = 'Very Low';
+    else if (Math.abs(g) < 20) zone = 'Good';
+    else if (Math.abs(g) < 35) zone = 'Strong';
+    sl.addText(zone, {
+      x:9.2, y:4.7, w:3.8, h:0.3,
+      fontSize:12, color:gcol, fontFace:FONT, bold:true, italic:true
+    });
+    sl.addText('Unit: ' + r.unit + '  |  LY→CY: ' + r.ly + '→' + r.cy, {
+      x:9.2, y:5.2, w:3.8, h:0.3,
+      fontSize:9, color:C.muted, fontFace:FONT
+    });
+    return sl;
+  }
+
   const pres = new PptxGenJS();
-  pres.layout = 'LAYOUT_WIDE';   // 13.33" × 7.5"
+  pres.layout = 'LAYOUT_WIDE';
   pres.title  = DASH.title;
   pres.author = 'RAJ-PAL Analytics';
 
-  /* ════════════════════════════════════════
-     SLIDE 1 — TITLE  (white bg, deep text)
-     ════════════════════════════════════════ */
+  /* ══ SLIDE 1: TITLE ══ */
   const s1 = pres.addSlide();
   s1.background = { color: C.white };
+  s1.addShape(pres.shapes.RECTANGLE, {x:0,y:0,w:0.22,h:7.5,fill:{color:C.blue},line:{color:C.blue}});
+  s1.addShape(pres.shapes.RECTANGLE, {x:0.22,y:0,w:13.11,h:0.06,fill:{color:C.mid},line:{color:C.mid}});
+  s1.addShape(pres.shapes.RECTANGLE, {x:0.22,y:7.44,w:13.11,h:0.06,fill:{color:C.mid},line:{color:C.mid}});
+  s1.addShape(pres.shapes.OVAL, {x:1.0,y:1.6,w:1.4,h:1.4,fill:{color:C.blue},line:{color:C.blue}});
+  s1.addText('RP', {x:1.0,y:1.6,w:1.4,h:1.4,fontSize:34,bold:true,color:C.white,fontFace:FONT,align:'center',valign:'middle'});
+  s1.addText('RAJ-PAL', {x:0.5,y:3.2,w:12.4,h:1.1,fontSize:62,bold:true,color:C.deep,fontFace:FONT,align:'center',charSpacing:10});
+  s1.addText('Performance Analytics Dashboard', {x:0.5,y:4.3,w:12.4,h:0.65,fontSize:22,color:C.blue,fontFace:FONT,align:'center',charSpacing:2});
+  s1.addShape(pres.shapes.RECTANGLE, {x:3.5,y:5.1,w:6.33,h:0.035,fill:{color:C.border},line:{color:C.border}});
+  s1.addText(DASH.period + '   ·   ' + DASH.source, {x:0.5,y:5.22,w:12.4,h:0.35,fontSize:12,color:C.grey,fontFace:FONT,align:'center',italic:true});
+  s1.addText('Generated: ' + today, {x:0.5,y:5.65,w:12.4,h:0.3,fontSize:10,color:C.border,fontFace:FONT,align:'center'});
 
-  // Left accent strip
-  s1.addShape(pres.shapes.RECTANGLE, {
-    x:0, y:0, w:0.22, h:7.5, fill:{color:C.blue}, line:{color:C.blue}
-  });
-  // Top thin line
-  s1.addShape(pres.shapes.RECTANGLE, {
-    x:0.22, y:0, w:13.11, h:0.06, fill:{color:C.mid}, line:{color:C.mid}
-  });
-  // Bottom thin line
-  s1.addShape(pres.shapes.RECTANGLE, {
-    x:0.22, y:7.44, w:13.11, h:0.06, fill:{color:C.mid}, line:{color:C.mid}
-  });
-
-  // Company badge circle
-  s1.addShape(pres.shapes.OVAL, {
-    x:1.0, y:1.6, w:1.4, h:1.4, fill:{color:C.blue}, line:{color:C.blue}
-  });
-  s1.addText('RP', {
-    x:1.0, y:1.6, w:1.4, h:1.4,
-    fontSize:34, bold:true, color:C.white, fontFace:FONT,
-    align:'center', valign:'middle'
-  });
-
-  // Title text
-  s1.addText('RAJ-PAL', {
-    x:0.5, y:3.2, w:12.4, h:1.1,
-    fontSize:62, bold:true, color:C.deep, fontFace:FONT,
-    align:'center', charSpacing:10
-  });
-  s1.addText('Performance Analytics Dashboard', {
-    x:0.5, y:4.3, w:12.4, h:0.65,
-    fontSize:22, color:C.blue, fontFace:FONT,
-    align:'center', charSpacing:2
-  });
-
-  // Divider
-  s1.addShape(pres.shapes.RECTANGLE, {
-    x:3.5, y:5.1, w:6.33, h:0.035, fill:{color:C.border}, line:{color:C.border}
-  });
-
-  // Subtitle info
-  s1.addText(DASH.period + '   ·   ' + DASH.source, {
-    x:0.5, y:5.22, w:12.4, h:0.35,
-    fontSize:12, color:C.grey, fontFace:FONT, align:'center', italic:true
-  });
-  s1.addText('Generated: ' + today, {
-    x:0.5, y:5.65, w:12.4, h:0.3,
-    fontSize:10, color:C.border, fontFace:FONT, align:'center'
-  });
-
-  /* ════════════════════════════════════════
-     SLIDE 2 — 4 KPI CARDS (big numbers)
-     ════════════════════════════════════════ */
+  /* ══ SLIDE 2: KPI CARDS ══ */
   const s2 = pres.addSlide();
   s2.background = { color: C.light };
   addHeader(s2, 'Key Performance Indicators', 'Top-level metrics — Current Year vs Last Year');
   addFooter(s2);
 
-  const kpiDefs = [
-    { idx:0, color:C.blue,  val:()=>fmtLakh(DASH.rows[0].cy)+' BDT' },
-    { idx:1, color:C.green, val:()=>DASH.rows[1].cy.toLocaleString('en-IN')+' Tons' },
-    { idx:2, color:C.gold,  val:()=>DASH.rows[2].cy+' Kg/MH' },
-    { idx:9, color:C.red,   val:()=>'BDT '+DASH.rows[9].cy.toFixed(2)+'/Kg' },
+  const kpiPrimary = [
+    { idx:0, color:C.blue,  val: fmtLakh(DASH.rows[0].cy)+' BDT' },
+    { idx:1, color:C.green, val: DASH.rows[1].cy.toLocaleString('en-IN')+' Tons' },
+    { idx:2, color:C.gold,  val: DASH.rows[2].cy+' Kg/MH' },
+    { idx:9, color:C.red,   val: 'BDT '+DASH.rows[9].cy.toFixed(2)+'/Kg' },
   ];
-
-  kpiDefs.forEach((k, i) => {
+  kpiPrimary.forEach((k, i) => {
     const r = DASH.rows[k.idx];
     const g = rowGrowth(r);
-    const good = isGoodGrowth(k.idx, g);
-    const x = 0.3 + i * 3.22;
-    addKpiCard(s2, x, 1.05, 3.0, 2.3, k.color, r.label, k.val(), g, good);
+    addKpiCard(s2, 0.3 + i * 3.22, 1.05, 3.0, 2.3, k.color, r.label, k.val, g, isGoodGrowth(k.idx, g));
   });
 
-  // Secondary row — yield, hr, util, mat
-  const kpiDefs2 = [
+  const kpiSecondary = [
     { idx:8, color:C.green },
     { idx:3, color:C.gold  },
     { idx:5, color:C.red   },
     { idx:7, color:C.red   },
   ];
-  kpiDefs2.forEach((k, i) => {
+  kpiSecondary.forEach((k, i) => {
     const r = DASH.rows[k.idx];
     const g = rowGrowth(r);
-    const good = isGoodGrowth(k.idx, g);
-    const x = 0.3 + i * 3.22;
-    addKpiCard(s2, x, 3.55, 3.0, 1.9, k.color, r.label,
-      r.unit==='%' ? r.cy+'%' : r.cy, g, good);
+    addKpiCard(s2, 0.3 + i * 3.22, 3.55, 3.0, 1.9, k.color, r.label,
+      r.unit==='%' ? r.cy+'%' : r.cy, g, isGoodGrowth(k.idx, g));
   });
 
-  /* ════════════════════════════════════════
-     SLIDE 3 — FULL DATA TABLE
-     ════════════════════════════════════════ */
-  const s3 = pres.addSlide();
-  s3.background = { color: C.white };
-  addHeader(s3, 'Performance Particulars — All Metrics', 'Monthly Average · LY vs CY with Growth %');
-  addFooter(s3);
+  /* ══ SLIDE 3: X-Tk Revenue ══ */
+  addMetricSlide('X-Tk Revenue — LY vs CY', 'Revenue in BDT · Monthly Average', 0, C.blue, 'X-Tk Revenue (BDT)');
 
-  const tblRows = [
-    // Header
-    [
-      {text:'Particular',       options:{bold:true, color:C.white, fill:{color:C.blue}, align:'left',   fontSize:10}},
-      {text:'Unit',             options:{bold:true, color:C.white, fill:{color:C.blue}, align:'center', fontSize:10}},
-      {text:'Last Year (LY)',   options:{bold:true, color:C.white, fill:{color:C.blue}, align:'right',  fontSize:10}},
-      {text:'Current Year (CY)',options:{bold:true, color:C.white, fill:{color:C.blue}, align:'right',  fontSize:10}},
-      {text:'Difference',       options:{bold:true, color:C.white, fill:{color:C.blue}, align:'right',  fontSize:10}},
-      {text:'Growth %',         options:{bold:true, color:C.white, fill:{color:C.blue}, align:'center', fontSize:10}},
-    ],
-    // Data rows
-    ...DASH.rows.map((r, i) => {
-      const g = rowGrowth(r);
-      const good = isGoodGrowth(i, g);
-      const diff = parseFloat((r.cy - r.ly).toFixed(3));
-      const diffStr = (diff >= 0 ? '+' : '') + diff;
-      const gStr = (g >= 0 ? '+' : '') + g + '%';
-      const gcol = good ? C.green : C.red;
-      const bg = i % 2 === 0 ? C.white : C.light;
-      return [
-        {text:r.label,   options:{color:C.deep,  fill:{color:bg}, align:'left',   fontSize:10, bold: i<3}},
-        {text:r.unit,    options:{color:C.muted, fill:{color:bg}, align:'center', fontSize:10}},
-        {text:String(r.ly), options:{color:C.muted, fill:{color:bg}, align:'right',  fontSize:10}},
-        {text:String(r.cy), options:{color:C.deep,  fill:{color:bg}, align:'right',  fontSize:10, bold:true}},
-        {text:diffStr,   options:{color:C.green, fill:{color:bg}, align:'right',  fontSize:10}},
-        {text:gStr,      options:{color:gcol,    fill:{color:bg}, align:'center', fontSize:10, bold:true}},
-      ];
-    })
-  ];
+  /* ══ SLIDE 4: T-Ton Volume ══ */
+  addMetricSlide('T-Ton Volume — LY vs CY', 'Production volume in Metric Tons', 1, C.green, 'T-Ton Volume (Tons)');
 
-  s3.addTable(tblRows, {
-    x:0.28, y:1.02, w:12.77, h:6.1,
-    rowH: 0.535,
-    border:{pt:0.5, color:C.border},
-    fontFace:FONT,
-    colW:[3.4, 1.25, 1.8, 1.85, 1.62, 1.55]
-  });
+  /* ══ SLIDE 5: Productivity ══ */
+  addMetricSlide('Productivity (Kg/Man-Hr) — LY vs CY', 'Output per man-hour · Monthly Average', 2, C.gold, 'Productivity (Kg/MH)');
 
-  /* ════════════════════════════════════════
-     SLIDE 4 — YoY GROWTH BAR CHART
-     ════════════════════════════════════════ */
-  const s4 = pres.addSlide();
-  s4.background = { color: C.white };
-  addHeader(s4, 'YoY Growth % — All 10 Metrics', 'Green = positive outcome  ·  Red = cost pressure');
-  addFooter(s4);
+  /* ══ SLIDE 6: Conversion Cost ══ */
+  addMetricSlide('Conversion Cost / Kg — LY vs CY', 'Total conversion cost per kilogram (BDT)', 9, C.red, 'Conversion Cost/Kg (BDT)');
 
+  /* ══ SLIDE 7: ALL METRICS YoY GROWTH % ══ */
+  const s7 = pres.addSlide();
+  s7.background = { color: C.white };
+  addHeader(s7, 'All Metrics — YoY Growth % Overview', 'Complete comparison across all 10 performance indicators · Green = positive · Red = cost pressure');
+  addFooter(s7);
   const growthColors = DASH.rows.map((r,i) => isGoodGrowth(i, rowGrowth(r)) ? C.green : C.red);
-
-  s4.addChart(pres.charts.BAR, [{
+  s7.addChart(pres.charts.BAR, [{
     name: 'YoY Growth %',
     labels: DASH.rows.map(r => r.label),
     values: DASH.rows.map(r => rowGrowth(r))
   }], {
-    x:0.28, y:1.0, w:12.77, h:6.3,
+    x:0.28, y:1.0, w:12.77, h:6.1,
     barDir:'col', barGapWidthPct:45,
     chartColors: growthColors,
     chartArea:{ fill:{color:C.white}, roundedCorners:false },
-    catAxisLabelColor: C.muted,
-    valAxisLabelColor: C.muted,
-    valGridLine:{ color:'E2E8F0', size:0.5 },
-    catGridLine:{ style:'none' },
-    showValue: true,
-    dataLabelColor: C.deep,
-    dataLabelFontSize: 9,
-    dataLabelFontBold: true,
-    valAxisNumFmt: '0.0"%"',
-    catAxisLabelFontSize: 8,
-    catAxisLabelRotate: 30,
-    showLegend: false,
+    catAxisLabelColor:C.muted, valAxisLabelColor:C.muted,
+    valGridLine:{color:'E2E8F0',size:0.5}, catGridLine:{style:'none'},
+    showValue:true, dataLabelColor:C.deep, dataLabelFontSize:9, dataLabelFontBold:true,
+    valAxisNumFmt:'0.0"%"', catAxisLabelFontSize:8, catAxisLabelRotate:30,
+    showLegend:false,
   });
 
-  /* ════════════════════════════════════════
-     SLIDE 5 — PRODUCTION & REVENUE (LY vs CY bars)
-     ════════════════════════════════════════ */
-  const s5 = pres.addSlide();
-  s5.background = { color: C.white };
-  addHeader(s5, 'Production & Revenue — LY vs CY', 'X-Tk Revenue · T-Ton Volume · Productivity · Yield');
-  addFooter(s5);
-
-  // 2×2 grid of bar charts
-  const prodCharts = [
-    { title:'X-Tk Revenue (BDT)', ly:[DASH.rows[0].ly], cy:[DASH.rows[0].cy], labels:['X-Tk Revenue'], col:C.blue  },
-    { title:'T-Ton Volume (Tons)', ly:[DASH.rows[1].ly], cy:[DASH.rows[1].cy], labels:['T-Ton Volume'],  col:C.green },
-    { title:'Productivity (Kg/Man-Hr)', ly:[DASH.rows[2].ly], cy:[DASH.rows[2].cy], labels:['Productivity'], col:C.gold  },
-    { title:'Yield % Comparison',  ly:[DASH.rows[8].ly], cy:[DASH.rows[8].cy], labels:['Yield %'],       col:C.green },
-  ];
-
-  const gpos = [{x:0.28,y:1.0},{x:6.88,y:1.0},{x:0.28,y:4.1},{x:6.88,y:4.1}];
-  const lyHex = 'A8C4E8';
-
-  prodCharts.forEach((ch, i) => {
-    const p = gpos[i];
-    s5.addChart(pres.charts.BAR, [
-      { name:'Last Year (LY)',    labels:ch.labels, values:ch.ly },
-      { name:'Current Year (CY)', labels:ch.labels, values:ch.cy },
-    ], {
-      x:p.x, y:p.y, w:6.17, h:2.9,
-      barDir:'col', barGapWidthPct:60,
-      chartColors:[ lyHex, ch.col ],
-      chartArea:{ fill:{color:C.white} },
-      catAxisLabelColor: C.muted, valAxisLabelColor: C.muted,
-      valGridLine:{color:'E2E8F0',size:0.5}, catGridLine:{style:'none'},
-      showValue:true, dataLabelColor:C.deep, dataLabelFontSize:8,
-      legendPos:'b', showLegend:true,
-      showTitle:true, title:ch.title, titleFontSize:10, titleColor:C.deep, titleFontBold:true,
-    });
-  });
-
-  /* ════════════════════════════════════════
-     SLIDE 6 — COST ANALYSIS
-     ════════════════════════════════════════ */
-  const s6 = pres.addSlide();
-  s6.background = { color: C.white };
-  addHeader(s6, 'Cost Analysis — LY vs CY', 'HR Cost · Utility · Maintenance · Materials · Conversion Cost');
-  addFooter(s6);
-
-  const costCharts = [
-    { title:'HR Cost / Kg (BDT)',     ly:[DASH.rows[4].ly], cy:[DASH.rows[4].cy], labels:['HR Cost/Kg'],   col:C.gold },
-    { title:'Utility Cost / Kg (BDT)',ly:[DASH.rows[5].ly], cy:[DASH.rows[5].cy], labels:['Utility/Kg'],   col:C.red  },
-    { title:'Maintenance / Kg (BDT)', ly:[DASH.rows[6].ly], cy:[DASH.rows[6].cy], labels:['Maint/Kg'],     col:C.red  },
-    { title:'Materials Cost %',       ly:[DASH.rows[7].ly], cy:[DASH.rows[7].cy], labels:['Materials %'],  col:C.red  },
-  ];
-
-  costCharts.forEach((ch, i) => {
-    const p = gpos[i];
-    s6.addChart(pres.charts.BAR, [
-      { name:'Last Year (LY)',    labels:ch.labels, values:ch.ly },
-      { name:'Current Year (CY)', labels:ch.labels, values:ch.cy },
-    ], {
-      x:p.x, y:p.y, w:6.17, h:2.9,
-      barDir:'col', barGapWidthPct:60,
-      chartColors:[ lyHex, ch.col ],
-      chartArea:{ fill:{color:C.white} },
-      catAxisLabelColor:C.muted, valAxisLabelColor:C.muted,
-      valGridLine:{color:'E2E8F0',size:0.5}, catGridLine:{style:'none'},
-      showValue:true, dataLabelColor:C.deep, dataLabelFontSize:8,
-      legendPos:'b', showLegend:true,
-      showTitle:true, title:ch.title, titleFontSize:10, titleColor:C.deep, titleFontBold:true,
-    });
-  });
-
-  /* ════════════════════════════════════════
-     SLIDE 7 — COST BREAKDOWN DOUGHNUT + SUMMARY
-     ════════════════════════════════════════ */
-  const s7 = pres.addSlide();
-  s7.background = { color: C.white };
-  addHeader(s7, 'Cost Breakdown per Kg — CY', 'Conversion Cost composition: HR · Utility · Maintenance · Others');
-  addFooter(s7);
-
+  /* ══ SLIDE 8: COST BREAKDOWN DOUGHNUT ══ */
+  const s8 = pres.addSlide();
+  s8.background = { color: C.white };
+  addHeader(s8, 'Cost Breakdown per Kg — CY', 'Conversion Cost composition: HR · Utility · Maintenance · Others');
+  addFooter(s8);
   const hrcostCy = DASH.rows[4].cy;
   const utilCy   = DASH.rows[5].cy;
   const maintCy  = DASH.rows[6].cy;
   const convCy   = DASH.rows[9].cy;
   const othersCy = Math.max(0, parseFloat((convCy - hrcostCy - utilCy - maintCy).toFixed(3)));
-
-  s7.addChart(pres.charts.DOUGHNUT, [{
+  s8.addChart(pres.charts.DOUGHNUT, [{
     name:'Cost / Kg (CY)',
     labels:['HR Cost','Utility','Maintenance','Others'],
     values:[hrcostCy, utilCy, maintCy, othersCy]
   }], {
     x:0.28, y:0.98, w:6.4, h:6.1,
     cutoutVal:'60%',
-    chartColors:[ C.blue, C.green, C.gold, C.red ],
+    chartColors:[C.blue, C.green, C.gold, C.red],
     showPercent:true, showLabel:true, showValue:false,
     dataLabelColor:C.white, dataLabelFontSize:11, dataLabelFontBold:true,
     legendPos:'b', showLegend:true,
     chartArea:{ fill:{color:C.white} },
     showTitle:false,
   });
-
-  // Right side: cost breakdown table
-  s7.addText('Cost Summary (CY)', {
-    x:7.0, y:1.05, w:6.0, h:0.4,
-    fontSize:14, bold:true, color:C.deep, fontFace:FONT
-  });
-
-  const costRows = [
-    { lbl:'HR Cost / Kg',       val:hrcostCy, col:C.blue  },
-    { lbl:'Utility Cost / Kg',  val:utilCy,   col:C.green },
-    { lbl:'Maintenance / Kg',   val:maintCy,  col:C.gold  },
-    { lbl:'Others / Kg',        val:othersCy, col:C.muted },
-    { lbl:'Total Conv. Cost / Kg', val:convCy, col:C.deep  },
+  s8.addText('Cost Summary — CY', {x:7.0,y:1.05,w:6.0,h:0.4,fontSize:14,bold:true,color:C.deep,fontFace:FONT});
+  const cRows = [
+    { lbl:'HR Cost / Kg',          val:hrcostCy, col:C.blue  },
+    { lbl:'Utility Cost / Kg',     val:utilCy,   col:C.green },
+    { lbl:'Maintenance / Kg',      val:maintCy,  col:C.gold  },
+    { lbl:'Others / Kg',           val:othersCy, col:C.muted },
+    { lbl:'Total Conv. Cost / Kg', val:convCy,   col:C.deep  },
   ];
-
-  costRows.forEach((cr, i) => {
+  cRows.forEach((cr, i) => {
     const yy = 1.6 + i * 0.88;
     const isTotal = i === 4;
-    // row bg
-    s7.addShape(pres.shapes.RECTANGLE, {
+    s8.addShape(pres.shapes.RECTANGLE, {
       x:7.0, y:yy, w:6.05, h:0.72,
       fill:{color: isTotal ? C.deep : (i%2===0 ? C.white : C.light)},
       line:{color:C.border, pt:0.5}
     });
-    // left accent
-    s7.addShape(pres.shapes.RECTANGLE, {
-      x:7.0, y:yy, w:0.05, h:0.72,
-      fill:{color: cr.col}, line:{color:cr.col}
-    });
-    // label
-    s7.addText(cr.lbl, {
+    s8.addShape(pres.shapes.RECTANGLE, {x:7.0,y:yy,w:0.05,h:0.72,fill:{color:cr.col},line:{color:cr.col}});
+    s8.addText(cr.lbl, {
       x:7.15, y:yy+0.1, w:3.8, h:0.5,
       fontSize:12, color: isTotal ? C.white : C.muted,
       fontFace:FONT, bold: isTotal, valign:'middle'
     });
-    // value
-    s7.addText('BDT ' + cr.val.toFixed(3), {
+    s8.addText('BDT ' + cr.val.toFixed(3), {
       x:10.2, y:yy+0.1, w:2.7, h:0.5,
       fontSize:14, bold:true,
       color: isTotal ? 'CADCFC' : cr.col,
@@ -1055,39 +960,34 @@ async function downloadPPT(btn) {
     });
   });
 
-  /* ════════════════════════════════════════
-     SLIDE 8 — HR ANALYSIS
-     ════════════════════════════════════════ */
-  const s8 = pres.addSlide();
-  s8.background = { color: C.white };
-  addHeader(s8, 'HR Analysis — Headcount & Cost', 'HR Nos · HR Cost / Kg — LY vs CY');
-  addFooter(s8);
+  /* ══ SLIDE 9: YIELD % ══ */
+  addMetricSlide('Yield % — LY vs CY', 'Production yield percentage · Monthly Average', 8, C.green, 'Yield %');
 
-  // HR Count chart (left)
-  s8.addChart(pres.charts.BAR, [
+  /* ══ SLIDE 10: HR ANALYSIS ══ */
+  const s10 = pres.addSlide();
+  s10.background = { color: C.white };
+  addHeader(s10, 'HR Analysis — Headcount & Cost', 'HR Nos · HR Cost / Kg — LY vs CY');
+  addFooter(s10);
+  s10.addChart(pres.charts.BAR, [
     { name:'Last Year (LY)',    labels:['HR Count (Nos)'], values:[DASH.rows[3].ly] },
     { name:'Current Year (CY)', labels:['HR Count (Nos)'], values:[DASH.rows[3].cy] },
   ], {
     x:0.28, y:1.0, w:6.17, h:5.8,
     barDir:'col', barGapWidthPct:60,
-    chartColors:[ lyHex, C.gold ],
-    chartArea:{ fill:{color:C.white} },
+    chartColors:[lyHex, C.gold], chartArea:{fill:{color:C.white}},
     catAxisLabelColor:C.muted, valAxisLabelColor:C.muted,
     valGridLine:{color:'E2E8F0',size:0.5}, catGridLine:{style:'none'},
     showValue:true, dataLabelColor:C.deep, dataLabelFontSize:11, dataLabelFontBold:true,
     legendPos:'b', showLegend:true,
     showTitle:true, title:'HR Headcount (Nos)', titleFontSize:13, titleColor:C.deep, titleFontBold:true,
   });
-
-  // HR Cost chart (right)
-  s8.addChart(pres.charts.BAR, [
+  s10.addChart(pres.charts.BAR, [
     { name:'Last Year (LY)',    labels:['HR Cost / Kg'], values:[DASH.rows[4].ly] },
     { name:'Current Year (CY)', labels:['HR Cost / Kg'], values:[DASH.rows[4].cy] },
   ], {
     x:6.88, y:1.0, w:6.17, h:5.8,
     barDir:'col', barGapWidthPct:60,
-    chartColors:[ lyHex, C.red ],
-    chartArea:{ fill:{color:C.white} },
+    chartColors:[lyHex, C.red], chartArea:{fill:{color:C.white}},
     catAxisLabelColor:C.muted, valAxisLabelColor:C.muted,
     valGridLine:{color:'E2E8F0',size:0.5}, catGridLine:{style:'none'},
     showValue:true, dataLabelColor:C.deep, dataLabelFontSize:11, dataLabelFontBold:true,
@@ -1095,79 +995,100 @@ async function downloadPPT(btn) {
     showTitle:true, title:'HR Cost / Kg (BDT)', titleFontSize:13, titleColor:C.deep, titleFontBold:true,
   });
 
-  /* ════════════════════════════════════════
-     SLIDE 9 — GROWTH RANKING (horizontal bars)
-     ════════════════════════════════════════ */
-  const s9 = pres.addSlide();
-  s9.background = { color: C.white };
-  addHeader(s9, 'Growth Ranking — All Metrics', 'YoY Growth % sorted by performance');
-  addFooter(s9);
+  /* ══ SLIDE 11: MATERIALS COST % ══ */
+  addMetricSlide('Materials Cost % — LY vs CY', 'Material cost as percentage of total cost', 7, C.red, 'Materials Cost %');
 
-  // Sort by absolute growth descending for ranking
-  const sorted = DASH.rows.map((r,i) => ({...r, growth:rowGrowth(r), idx:i}))
+  /* ══ SLIDE 12: FULL DATA TABLE ══ */
+  const s12 = pres.addSlide();
+  s12.background = { color: C.white };
+  addHeader(s12, 'Performance Particulars — All Metrics', 'Monthly Average · LY vs CY · Difference · Growth %');
+  addFooter(s12);
+  const tblRows = [
+    [
+      {text:'Particular',        options:{bold:true, color:C.white, fill:{color:C.blue}, align:'left',   fontSize:10}},
+      {text:'Unit',              options:{bold:true, color:C.white, fill:{color:C.blue}, align:'center', fontSize:10}},
+      {text:'Last Year (LY)',    options:{bold:true, color:C.white, fill:{color:C.blue}, align:'right',  fontSize:10}},
+      {text:'Current Year (CY)',  options:{bold:true, color:C.white, fill:{color:C.blue}, align:'right',  fontSize:10}},
+      {text:'Difference',        options:{bold:true, color:C.white, fill:{color:C.blue}, align:'right',  fontSize:10}},
+      {text:'Growth %',          options:{bold:true, color:C.white, fill:{color:C.blue}, align:'center', fontSize:10}},
+    ],
+    ...DASH.rows.map((r, i) => {
+      const g = rowGrowth(r);
+      const good = isGoodGrowth(i, g);
+      const diff = parseFloat((r.cy - r.ly).toFixed(3));
+      const gcol = good ? C.green : C.red;
+      const bg = i % 2 === 0 ? C.white : C.light;
+      return [
+        {text:r.label,              options:{color:C.deep,  fill:{color:bg}, align:'left',   fontSize:10, bold:i<3}},
+        {text:r.unit,               options:{color:C.muted, fill:{color:bg}, align:'center', fontSize:10}},
+        {text:String(r.ly),         options:{color:C.muted, fill:{color:bg}, align:'right',  fontSize:10}},
+        {text:String(r.cy),         options:{color:C.deep,  fill:{color:bg}, align:'right',  fontSize:10, bold:true}},
+        {text:(diff>=0?'+':'')+diff, options:{color:C.green, fill:{color:bg}, align:'right', fontSize:10}},
+        {text:(g>=0?'+':'')+g+'%',   options:{color:gcol,   fill:{color:bg}, align:'center', fontSize:10, bold:true}},
+      ];
+    })
+  ];
+  s12.addTable(tblRows, {
+    x:0.28, y:1.02, w:12.77, h:6.1,
+    rowH:0.535,
+    border:{pt:0.5, color:C.border},
+    fontFace:FONT,
+    colW:[3.4, 1.25, 1.8, 1.85, 1.62, 1.55]
+  });
+
+  /* ══ SLIDE 13: GROWTH RANKING — HORIZONTAL BARS ══ */
+  const s13 = pres.addSlide();
+  s13.background = { color: C.white };
+  addHeader(s13, 'Growth Ranking — All Metrics', 'YoY Growth % sorted by magnitude · Matches the UI ranking chart');
+  addFooter(s13);
+  const sortedRanked = DASH.rows.map((r,i) => ({...r, growth:rowGrowth(r), idx:i}))
     .sort((a,b) => Math.abs(b.growth) - Math.abs(a.growth));
-
-  s9.addChart(pres.charts.BAR, [{
+  s13.addChart(pres.charts.BAR, [{
     name: 'YoY Growth %',
-    labels: sorted.map(r => r.label),
-    values: sorted.map(r => r.growth)
+    labels: sortedRanked.map(r => r.label),
+    values: sortedRanked.map(r => r.growth)
   }], {
-    x:0.28, y:1.0, w:12.77, h:6.3,
-    barDir:'bar',   // horizontal
+    x:0.28, y:1.0, w:12.77, h:6.1,
+    barDir:'bar',
     barGapWidthPct:40,
-    chartColors: sorted.map(r => isGoodGrowth(r.idx, r.growth) ? C.green : C.red),
+    chartColors: sortedRanked.map(r => isGoodGrowth(r.idx, r.growth) ? C.green : C.red),
     chartArea:{ fill:{color:C.white} },
     catAxisLabelColor:C.muted, valAxisLabelColor:C.muted,
     valGridLine:{color:'E2E8F0',size:0.5}, catGridLine:{style:'none'},
     showValue:true, dataLabelColor:C.deep, dataLabelFontSize:9, dataLabelFontBold:true,
-    valAxisNumFmt:'0.0"%"',
-    catAxisLabelFontSize:9,
+    valAxisNumFmt:'0.0"%"', catAxisLabelFontSize:9,
     showLegend:false,
   });
 
-  /* ════════════════════════════════════════
-     SLIDE 10 — CLOSING SUMMARY
-     ════════════════════════════════════════ */
-  const s10 = pres.addSlide();
-  s10.background = { color: C.deep };
-
-  s10.addShape(pres.shapes.RECTANGLE, {x:0,y:0,w:13.33,h:0.06,fill:{color:C.mid},line:{color:C.mid}});
-  s10.addShape(pres.shapes.RECTANGLE, {x:0,y:7.44,w:13.33,h:0.06,fill:{color:C.mid},line:{color:C.mid}});
-
-  s10.addText('Summary', {
-    x:0.5,y:0.5,w:12.33,h:0.55,
-    fontSize:14, color:'7A8FB5', fontFace:FONT, charSpacing:4, align:'center'
-  });
-  s10.addText('Key Takeaways', {
-    x:0.5,y:1.05,w:12.33,h:0.8,
-    fontSize:38, bold:true, color:C.white, fontFace:FONT, align:'center'
-  });
-
-  // 3 takeaway boxes
+  /* ══ SLIDE 14: KEY TAKEAWAYS ══ */
+  const s14 = pres.addSlide();
+  s14.background = { color: C.deep };
+  s14.addShape(pres.shapes.RECTANGLE, {x:0,y:0,w:13.33,h:0.06,fill:{color:C.mid},line:{color:C.mid}});
+  s14.addShape(pres.shapes.RECTANGLE, {x:0,y:7.44,w:13.33,h:0.06,fill:{color:C.mid},line:{color:C.mid}});
+  s14.addText('Summary', {x:0.5,y:0.5,w:12.33,h:0.55,fontSize:14,color:'7A8FB5',fontFace:FONT,charSpacing:4,align:'center'});
+  s14.addText('Key Takeaways', {x:0.5,y:1.05,w:12.33,h:0.8,fontSize:38,bold:true,color:C.white,fontFace:FONT,align:'center'});
   const takeaways = [
-    { icon:'📈', head:'Revenue & Volume', body:`X-Tk Revenue grew ${rowGrowth(DASH.rows[0])}% YoY to ${fmtLakh(DASH.rows[1].cy)}. T-Ton Volume up ${rowGrowth(DASH.rows[1])}%.` },
-    { icon:'⚡', head:'Productivity & Yield', body:`Productivity improved ${rowGrowth(DASH.rows[2])}% (${DASH.rows[2].ly}→${DASH.rows[2].cy} Kg/MH). Yield rose ${rowGrowth(DASH.rows[8])}%.` },
-    { icon:'💰', head:'Cost Pressure', body:`Conversion Cost rose ${rowGrowth(DASH.rows[9])}% to BDT ${DASH.rows[9].cy}/Kg. Utility up ${rowGrowth(DASH.rows[5])}%.` },
+    {
+      icon:'📈', head:'Revenue & Volume',
+      body:`X-Tk Revenue grew ${rowGrowth(DASH.rows[0])}% YoY to ${fmtLakh(DASH.rows[0].cy)} BDT. T-Ton Volume up ${rowGrowth(DASH.rows[1])}% (${DASH.rows[1].ly.toLocaleString()} → ${DASH.rows[1].cy.toLocaleString()} Tons).`
+    },
+    {
+      icon:'⚡', head:'Productivity & Yield',
+      body:`Productivity improved ${rowGrowth(DASH.rows[2])}% (${DASH.rows[2].ly} → ${DASH.rows[2].cy} Kg/MH). Yield rose from ${DASH.rows[8].ly}% to ${DASH.rows[8].cy}% (+${rowGrowth(DASH.rows[8])}%).`
+    },
+    {
+      icon:'💰', head:'Cost Pressure',
+      body:`Conversion Cost rose ${rowGrowth(DASH.rows[9])}% to BDT ${DASH.rows[9].cy}/Kg. Utility up ${rowGrowth(DASH.rows[5])}%, Materials cost up ${rowGrowth(DASH.rows[7])}%.`
+    },
   ];
-
   takeaways.forEach((t, i) => {
     const x = 0.55 + i * 4.15;
-    s10.addShape(pres.shapes.RECTANGLE, {
-      x, y:2.15, w:3.85, h:3.8,
-      fill:{color:'142040'}, line:{color:'1E3060', pt:1}
-    });
-    s10.addText(t.icon, {x:x+0.15,y:2.25,w:3.6,h:0.55,fontSize:28,align:'left'});
-    s10.addText(t.head, {
-      x:x+0.15,y:2.85,w:3.6,h:0.45,
-      fontSize:13, bold:true, color:'CADCFC', fontFace:FONT
-    });
-    s10.addText(t.body, {
-      x:x+0.15,y:3.35,w:3.6,h:2.4,
-      fontSize:11, color:'8FA8C8', fontFace:FONT, valign:'top'
-    });
+    s14.addShape(pres.shapes.RECTANGLE, {x,y:2.15,w:3.85,h:3.8,fill:{color:'142040'},line:{color:'1E3060',pt:1}});
+    s14.addText(t.icon, {x:x+0.15,y:2.25,w:3.6,h:0.55,fontSize:28,align:'left'});
+    s14.addText(t.head, {x:x+0.15,y:2.85,w:3.6,h:0.45,fontSize:13,bold:true,color:'CADCFC',fontFace:FONT});
+    s14.addText(t.body, {x:x+0.15,y:3.35,w:3.6,h:2.4,fontSize:11,color:'8FA8C8',fontFace:FONT,valign:'top'});
   });
-
-  s10.addText(DASH.period + '  ·  ' + DASH.source + '  ·  ' + today, {
+  s14.addText(DASH.period + '  ·  ' + DASH.source + '  ·  ' + today, {
     x:0.5, y:6.3, w:12.33, h:0.35,
     fontSize:9, color:'3A5070', fontFace:FONT, align:'center', italic:true
   });
