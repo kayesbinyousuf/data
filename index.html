@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RAJ-PAL | Performance Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <style>
   :root {
     --bg:       #ffffff;
@@ -292,6 +294,12 @@
   .btn-apply { background: var(--mid); color: #fff; border: none; border-radius: 8px; padding: 9px 24px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .15s; }
   .btn-apply:hover { background: var(--blue); }
   .btn-cancel { background: var(--surface); color: var(--muted); border: 1.5px solid var(--border); border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-dl-ppt { background: #c43b1e; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .15s; display:flex; align-items:center; gap:6px; }
+  .btn-dl-ppt:hover { background: #a83215; }
+  .btn-dl-xls { background: #1d7a3a; color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .15s; display:flex; align-items:center; gap:6px; }
+  .btn-dl-xls:hover { background: #155e2c; }
+  .modal-footer-left { display:flex; gap:8px; }
+  .modal-footer-right { display:flex; gap:8px; }
 
   .kpi-card:nth-child(1){animation-delay:.04s} .kpi-card:nth-child(2){animation-delay:.08s}
   .kpi-card:nth-child(3){animation-delay:.12s} .kpi-card:nth-child(4){animation-delay:.16s}
@@ -677,9 +685,15 @@
         <button class="pm-btn plus"  onclick="adjustVal('ed_yield_cy', 1)">+</button>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
-      <button class="btn-apply" onclick="applyEdits()">✓ Apply Changes</button>
+    <div class="modal-footer" style="justify-content:space-between;">
+      <div class="modal-footer-left">
+        <button class="btn-dl-ppt" onclick="downloadPPT()">📊 Download PowerPoint</button>
+        <button class="btn-dl-xls" onclick="downloadExcel()">📗 Download Excel</button>
+      </div>
+      <div class="modal-footer-right">
+        <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+        <button class="btn-apply" onclick="applyEdits()">✓ Apply Changes</button>
+      </div>
     </div>
   </div>
 </div>
@@ -810,6 +824,292 @@ function applyEdits(){
   document.querySelector('.chart-panel:nth-child(4) .tag').textContent = `${costP>=0?'+':''}${costP}% Rise`;
 
   closeEditModal();
+}
+</script>
+
+<script>
+/* ── Helper: read current modal values ── */
+function getCurrentData() {
+  const g = id => parseFloat(document.getElementById(id).value) || 0;
+  const xtk_ly  = g('ed_xtk_ly'),  xtk_cy  = g('ed_xtk_cy');
+  const tton_ly  = g('ed_tton_ly'), tton_cy  = g('ed_tton_cy');
+  const prod_ly  = g('ed_prod_ly'), prod_cy  = g('ed_prod_cy');
+  const cost_ly  = g('ed_cost_ly'), cost_cy  = g('ed_cost_cy');
+  const hr_nos_ly= g('ed_hr_nos_ly'),hr_nos_cy= g('ed_hr_nos_cy');
+  const hrcost_ly= g('ed_hrcost_ly'),hrcost_cy= g('ed_hrcost_cy');
+  const util_ly  = g('ed_util_ly'), util_cy  = g('ed_util_cy');
+  const maint_ly = g('ed_maint_ly'),maint_cy = g('ed_maint_cy');
+  const mat_ly   = g('ed_mat_ly'),  mat_cy   = g('ed_mat_cy');
+  const yield_ly = g('ed_yield_ly'),yield_cy = g('ed_yield_cy');
+  const p = (ly,cy) => ly ? parseFloat(((cy-ly)/Math.abs(ly)*100).toFixed(1)) : 0;
+  return [
+    { label:'X-Tk Revenue',          unit:'BDT',    ly:xtk_ly,   cy:xtk_cy,   growth:p(xtk_ly,xtk_cy) },
+    { label:'T-Ton Volume',           unit:'Tons',   ly:tton_ly,  cy:tton_cy,  growth:p(tton_ly,tton_cy) },
+    { label:'Productivity (Kg/Man-Hr)',unit:'Kg/MH', ly:prod_ly,  cy:prod_cy,  growth:p(prod_ly,prod_cy) },
+    { label:'HR Count (Nos)',          unit:'Nos',   ly:hr_nos_ly,cy:hr_nos_cy,growth:p(hr_nos_ly,hr_nos_cy) },
+    { label:'HR Cost / Kg',            unit:'BDT/Kg',ly:hrcost_ly,cy:hrcost_cy,growth:p(hrcost_ly,hrcost_cy) },
+    { label:'Utility Cost / Kg',       unit:'BDT/Kg',ly:util_ly,  cy:util_cy,  growth:p(util_ly,util_cy) },
+    { label:'Maintenance Cost / Kg',   unit:'BDT/Kg',ly:maint_ly, cy:maint_cy, growth:p(maint_ly,maint_cy) },
+    { label:'Materials Cost %',        unit:'%',     ly:mat_ly,   cy:mat_cy,   growth:p(mat_ly,mat_cy) },
+    { label:'Yield %',                 unit:'%',     ly:yield_ly, cy:yield_cy, growth:p(yield_ly,yield_cy) },
+    { label:'Conversion Cost / Kg',    unit:'BDT/Kg',ly:cost_ly,  cy:cost_cy,  growth:p(cost_ly,cost_cy) },
+  ];
+}
+
+/* ── DOWNLOAD EXCEL ── */
+function downloadExcel() {
+  const rows = getCurrentData();
+  const today = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+
+  const wsData = [
+    ['RAJ-PAL Performance Dashboard — Monthly Average (CY vs LY)'],
+    ['Generated:', today],
+    [],
+    ['Particular', 'Unit', 'Last Year (LY)', 'Current Year (CY)', 'Difference', 'Growth %'],
+  ];
+
+  rows.forEach(r => {
+    const diff = parseFloat((r.cy - r.ly).toFixed(3));
+    wsData.push([r.label, r.unit, r.ly, r.cy, diff, r.growth + '%']);
+  });
+
+  wsData.push([]);
+  wsData.push(['Note: All values are monthly averages. Data source: Internal MIS.']);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [
+    {wch:30},{wch:12},{wch:18},{wch:18},{wch:14},{wch:12}
+  ];
+
+  // Bold + merge header row
+  ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:5} }];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Dashboard');
+
+  // Second sheet: raw data for charting
+  const ws2Data = [['Metric','LY','CY','Growth%']];
+  rows.forEach(r => ws2Data.push([r.label, r.ly, r.cy, r.growth]));
+  const ws2 = XLSX.utils.aoa_to_sheet(ws2Data);
+  ws2['!cols'] = [{wch:32},{wch:14},{wch:14},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Chart Data');
+
+  XLSX.writeFile(wb, 'RAJ-PAL_Dashboard.xlsx');
+}
+
+/* ── DOWNLOAD POWERPOINT ── */
+async function downloadPPT() {
+  const rows = getCurrentData();
+  const today = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+
+  const pres = new PptxGenJS();
+  pres.layout  = 'LAYOUT_WIDE';
+  pres.title   = 'RAJ-PAL Performance Dashboard';
+  pres.author  = 'RAJ-PAL Analytics';
+
+  const DEEP  = '0D1B3E';
+  const BLUE  = '1A3C8F';
+  const MID   = '2D5BE3';
+  const GREEN = '1D8348';
+  const GOLD  = 'B7860B';
+  const RED   = 'C0392B';
+  const LIGHT = 'F4F6FB';
+  const WHITE = 'FFFFFF';
+  const MUTED = '2C3A55';
+
+  /* ─ SLIDE 1: Title ─ */
+  const s1 = pres.addSlide();
+  s1.background = { color: DEEP };
+  s1.addShape(pres.shapes.RECTANGLE, { x:0, y:0, w:13.33, h:0.08, fill:{color:MID}, line:{color:MID} });
+  s1.addShape(pres.shapes.RECTANGLE, { x:0, y:7.42, w:13.33, h:0.08, fill:{color:MID}, line:{color:MID} });
+  s1.addText('RAJ-PAL', {
+    x:1, y:1.8, w:11.33, h:1.2, fontSize:60, bold:true, color:WHITE,
+    fontFace:'Calibri', charSpacing:8, align:'center'
+  });
+  s1.addText('Performance Dashboard', {
+    x:1, y:2.95, w:11.33, h:0.7, fontSize:26, color:'CADCFC',
+    fontFace:'Calibri', align:'center', charSpacing:3
+  });
+  s1.addShape(pres.shapes.RECTANGLE, { x:5.16, y:3.8, w:3, h:0.04, fill:{color:MID}, line:{color:MID} });
+  s1.addText('Monthly Average · CY vs LY · Internal MIS', {
+    x:1, y:4, w:11.33, h:0.5, fontSize:13, color:'7A8FB5',
+    fontFace:'Calibri', align:'center', italic:true
+  });
+  s1.addText(`Generated: ${today}`, {
+    x:1, y:6.8, w:11.33, h:0.4, fontSize:11, color:'4A5F80',
+    fontFace:'Calibri', align:'center'
+  });
+
+  /* ─ SLIDE 2: KPI Summary Cards ─ */
+  const s2 = pres.addSlide();
+  s2.background = { color: LIGHT };
+  s2.addShape(pres.shapes.RECTANGLE, { x:0, y:0, w:13.33, h:0.9, fill:{color:DEEP}, line:{color:DEEP} });
+  s2.addText('RAJ-PAL · Key Performance Indicators', {
+    x:0.4, y:0.12, w:12, h:0.6, fontSize:18, bold:true, color:WHITE, fontFace:'Calibri'
+  });
+  s2.addText('Monthly Average Performance — CY vs LY', {
+    x:0.4, y:0.52, w:10, h:0.3, fontSize:10, color:'CADCFC', fontFace:'Calibri'
+  });
+
+  const kpis = [
+    { label:'X-Tk Revenue',      val: rows[0].cy>=1000000?(rows[0].cy/100000).toFixed(2)+'L':rows[0].cy.toLocaleString(), pct:rows[0].growth, color:BLUE },
+    { label:'T-Ton Volume',      val: rows[1].cy.toLocaleString(),  pct:rows[1].growth, color:GREEN },
+    { label:'Productivity',      val: rows[2].cy+' Kg/MH',           pct:rows[2].growth, color:GOLD },
+    { label:'Conv. Cost / Kg',   val: 'BDT '+rows[9].cy.toFixed(2),  pct:rows[9].growth, color:RED },
+  ];
+  kpis.forEach((k, i) => {
+    const x = 0.3 + i * 3.2;
+    s2.addShape(pres.shapes.RECTANGLE, { x, y:1.1, w:3.0, h:2.2,
+      fill:{color:WHITE}, line:{color:'DCE4F0',pt:1},
+      shadow:{type:'outer',blur:8,offset:3,angle:135,color:'000000',opacity:0.08}
+    });
+    s2.addShape(pres.shapes.RECTANGLE, { x, y:1.1, w:3.0, h:0.07, fill:{color:k.color}, line:{color:k.color} });
+    s2.addText(k.label, {
+      x:x+0.12, y:1.22, w:2.8, h:0.3, fontSize:9, color:MUTED,
+      fontFace:'Calibri', bold:true, charSpacing:1
+    });
+    s2.addText(String(k.val), {
+      x:x+0.08, y:1.52, w:2.85, h:0.65, fontSize:22, bold:true, color:k.color,
+      fontFace:'Calibri'
+    });
+    const sign = k.pct >= 0 ? '▲' : '▼';
+    const pcol = k.pct >= 0 ? GREEN : RED;
+    s2.addText(`${sign} ${Math.abs(k.pct)}% vs Last Year`, {
+      x:x+0.1, y:2.22, w:2.8, h:0.3, fontSize:10, color:pcol,
+      fontFace:'Calibri', bold:true
+    });
+  });
+
+  /* ─ SLIDE 3: Full Data Table ─ */
+  const s3 = pres.addSlide();
+  s3.background = { color: WHITE };
+  s3.addShape(pres.shapes.RECTANGLE, { x:0, y:0, w:13.33, h:0.9, fill:{color:DEEP}, line:{color:DEEP} });
+  s3.addText('RAJ-PAL · Detailed Performance Table', {
+    x:0.4, y:0.12, w:12, h:0.6, fontSize:18, bold:true, color:WHITE, fontFace:'Calibri'
+  });
+  s3.addText('All Metrics — Monthly Average (LY vs CY)', {
+    x:0.4, y:0.52, w:10, h:0.3, fontSize:10, color:'CADCFC', fontFace:'Calibri'
+  });
+
+  const tblData = [
+    [
+      {text:'Particular',      options:{bold:true,color:WHITE,fill:{color:BLUE},  align:'left'}},
+      {text:'Unit',            options:{bold:true,color:WHITE,fill:{color:BLUE},  align:'center'}},
+      {text:'Last Year (LY)',  options:{bold:true,color:WHITE,fill:{color:BLUE},  align:'right'}},
+      {text:'Current Year (CY)',options:{bold:true,color:WHITE,fill:{color:BLUE}, align:'right'}},
+      {text:'Difference',      options:{bold:true,color:WHITE,fill:{color:BLUE},  align:'right'}},
+      {text:'Growth %',        options:{bold:true,color:WHITE,fill:{color:BLUE},  align:'center'}},
+    ],
+    ...rows.map((r,i) => {
+      const diff = parseFloat((r.cy - r.ly).toFixed(3));
+      const diffStr = diff >= 0 ? '+'+diff : String(diff);
+      const gStr = (r.growth>=0?'+':'')+r.growth+'%';
+      const gcol = r.growth >= 0 ? GREEN : RED;
+      const bg = i%2===0 ? 'FFFFFF' : 'F4F6FB';
+      return [
+        {text:r.label,   options:{color:DEEP,  fill:{color:bg}, align:'left', bold:i<3}},
+        {text:r.unit,    options:{color:MUTED, fill:{color:bg}, align:'center'}},
+        {text:String(r.ly), options:{color:MUTED, fill:{color:bg}, align:'right'}},
+        {text:String(r.cy), options:{color:DEEP,  fill:{color:bg}, align:'right', bold:true}},
+        {text:diffStr,   options:{color:GREEN, fill:{color:bg}, align:'right'}},
+        {text:gStr,      options:{color:gcol,  fill:{color:bg}, align:'center', bold:true}},
+      ];
+    })
+  ];
+
+  s3.addTable(tblData, {
+    x:0.3, y:1.05, w:12.73, h:5.8,
+    border:{pt:0.5, color:'DCE4F0'},
+    fontSize:10, fontFace:'Calibri',
+    rowH: 0.48,
+    colW:[3.5, 1.3, 1.8, 1.8, 1.6, 1.55]
+  });
+
+  /* ─ SLIDE 4: YoY Growth Bar ─ */
+  const s4 = pres.addSlide();
+  s4.background = { color: WHITE };
+  s4.addShape(pres.shapes.RECTANGLE, { x:0, y:0, w:13.33, h:0.9, fill:{color:DEEP}, line:{color:DEEP} });
+  s4.addText('RAJ-PAL · YoY Growth % — All Metrics', {
+    x:0.4, y:0.12, w:12, h:0.6, fontSize:18, bold:true, color:WHITE, fontFace:'Calibri'
+  });
+  s4.addText('Year-on-Year Growth % (positive = CY > LY)', {
+    x:0.4, y:0.52, w:10, h:0.3, fontSize:10, color:'CADCFC', fontFace:'Calibri'
+  });
+
+  const growthBarColors = [
+    GREEN, GREEN, GREEN,
+    GOLD, RED, RED, RED, RED, GREEN, RED
+  ];
+  s4.addChart(pres.charts.BAR, [{
+    name:'YoY Growth %',
+    labels: rows.map(r=>r.label),
+    values: rows.map(r=>r.growth)
+  }], {
+    x:0.4, y:1.05, w:12.53, h:5.9,
+    barDir:'col', barGapWidthPct:50,
+    chartColors: growthBarColors,
+    chartArea:{ fill:{color:WHITE}, roundedCorners:false },
+    catAxisLabelColor:MUTED, valAxisLabelColor:MUTED,
+    valGridLine:{color:'E2E8F0', size:0.5}, catGridLine:{style:'none'},
+    showValue:true, dataLabelColor:DEEP, dataLabelFontSize:10,
+    valAxisNumFmt:'0.0"%"',
+    showLegend:false,
+    catAxisLabelFontSize:9,
+  });
+
+  /* ─ SLIDE 5: Cost Breakdown ─ */
+  const s5 = pres.addSlide();
+  s5.background = { color: WHITE };
+  s5.addShape(pres.shapes.RECTANGLE, { x:0, y:0, w:13.33, h:0.9, fill:{color:DEEP}, line:{color:DEEP} });
+  s5.addText('RAJ-PAL · Cost Breakdown per Kg (CY)', {
+    x:0.4, y:0.12, w:12, h:0.6, fontSize:18, bold:true, color:WHITE, fontFace:'Calibri'
+  });
+
+  const hrcostCy = rows[4].cy, utilCy = rows[5].cy, maintCy = rows[6].cy;
+  const convCy   = rows[9].cy;
+  const others   = Math.max(0, parseFloat((convCy - hrcostCy - utilCy - maintCy).toFixed(3)));
+
+  s5.addChart(pres.charts.DOUGHNUT, [{
+    name:'Cost / Kg (CY)',
+    labels:['HR Cost','Utility','Maintenance','Others'],
+    values:[hrcostCy, utilCy, maintCy, others]
+  }], {
+    x:0.4, y:1.1, w:6, h:5.5, cutoutVal:'62%',
+    chartColors:[BLUE, GREEN, GOLD, RED],
+    showPercent:true, showLabel:true, showValue:false,
+    dataLabelColor:WHITE, dataLabelFontSize:11,
+    legendPos:'b', showLegend:true,
+    chartArea:{fill:{color:WHITE}},
+    title:'Cost per Kg Breakdown',
+    showTitle:true, titleFontSize:13, titleColor:DEEP,
+  });
+
+  // Summary stats on the right
+  const costItems = [
+    { lbl:'HR Cost / Kg',     val:hrcostCy },
+    { lbl:'Utility / Kg',    val:utilCy   },
+    { lbl:'Maintenance / Kg',val:maintCy  },
+    { lbl:'Others / Kg',     val:parseFloat(others.toFixed(3)) },
+    { lbl:'Total Conv. Cost',val:convCy   },
+  ];
+  s5.addText('Cost Summary (CY)', {
+    x:7, y:1.2, w:5.8, h:0.4, fontSize:13, bold:true, color:DEEP, fontFace:'Calibri'
+  });
+  costItems.forEach((c, i) => {
+    const yy = 1.75 + i * 0.72;
+    const isTotal = i === 4;
+    s5.addShape(pres.shapes.RECTANGLE, {
+      x:7, y:yy, w:5.9, h:0.58,
+      fill:{color: isTotal ? DEEP : (i%2===0?LIGHT:WHITE)},
+      line:{color:'DCE4F0',pt:0.5}
+    });
+    s5.addText(c.lbl, { x:7.12, y:yy+0.1, w:3.8, h:0.36, fontSize:11, color: isTotal?WHITE:MUTED, fontFace:'Calibri' });
+    s5.addText('BDT '+c.val, { x:10.3, y:yy+0.1, w:2.4, h:0.36, fontSize:12, bold:true, color: isTotal?WHITE:BLUE, fontFace:'Calibri', align:'right' });
+  });
+
+  await pres.writeFile({ fileName: 'RAJ-PAL_Dashboard.pptx' });
 }
 </script>
 
