@@ -658,8 +658,15 @@ function downloadExcel(btn) {
    ══════════════════════════════════════════════════ */
 async function downloadPPT(btn) {
   const orig = btn.innerHTML;
-  btn.innerHTML = '⏳ Building slides…'; btn.disabled = true;
+  btn.disabled = true;
 
+  // Progress updater — lets browser repaint between steps
+  function setProgress(msg) {
+    btn.innerHTML = '⏳ ' + msg;
+    return new Promise(r => setTimeout(r, 0));
+  }
+
+  await setProgress('Preparing data…');
   const today = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 
   const C = {
@@ -947,6 +954,7 @@ async function downloadPPT(btn) {
   pres.title  = DASH.title;
   pres.author = 'RAJ-PAL Analytics';
 
+  await setProgress("Building slide 1 / 14 — Title…");
   /* ══ SLIDE 1: TITLE ══ */
   const s1 = pres.addSlide();
   s1.background = { color: C.white };
@@ -961,6 +969,7 @@ async function downloadPPT(btn) {
   s1.addText(DASH.period + '   ·   ' + DASH.source, {x:0.5,y:5.22,w:12.4,h:0.35,fontSize:12,color:C.grey,fontFace:FONT,align:'center',italic:true});
   s1.addText('Generated: ' + today, {x:0.5,y:5.65,w:12.4,h:0.3,fontSize:10,color:C.border,fontFace:FONT,align:'center'});
 
+  await setProgress("Building slide 2 / 14 — KPI Cards…");
   /* ══ SLIDE 2: KPI CARDS ══ */
   const s2 = pres.addSlide();
   s2.background = { color: C.light };
@@ -993,17 +1002,22 @@ async function downloadPPT(btn) {
   });
 
   /* ══ SLIDE 3: X-Tk Revenue ══ */
+  await setProgress("Building slide 3 / 14 — X-Tk Revenue…");
   addMetricSlide('X-Tk Revenue — LY vs CY', 'Revenue in BDT · Monthly Average', 0, C.blue, 'X-Tk Revenue (BDT)');
 
   /* ══ SLIDE 4: T-Ton Volume ══ */
+  await setProgress("Building slide 4 / 14 — T-Ton Volume…");
   addMetricSlide('T-Ton Volume — LY vs CY', 'Production volume in Metric Tons', 1, C.green, 'T-Ton Volume (Tons)');
 
   /* ══ SLIDE 5: Productivity ══ */
+  await setProgress("Building slide 5 / 14 — Productivity…");
   addMetricSlide('Productivity (Kg/Man-Hr) — LY vs CY', 'Output per man-hour · Monthly Average', 2, C.gold, 'Productivity (Kg/MH)');
 
   /* ══ SLIDE 6: Conversion Cost ══ */
+  await setProgress("Building slide 6 / 14 — Conversion Cost…");
   addMetricSlide('Conversion Cost / Kg — LY vs CY', 'Total conversion cost per kilogram (BDT)', 9, C.red, 'Conversion Cost/Kg (BDT)');
 
+  await setProgress("Building slide 7 / 14 — All Metrics Growth…");
   /* ══ SLIDE 7: ALL METRICS YoY GROWTH % ══ */
   const s7 = pres.addSlide();
   s7.background = { color: C.white };
@@ -1026,6 +1040,7 @@ async function downloadPPT(btn) {
     showLegend:false,
   });
 
+  await setProgress("Building slide 8 / 14 — Cost Breakdown…");
   /* ══ SLIDE 8: COST BREAKDOWN DOUGHNUT ══ */
   const s8 = pres.addSlide();
   s8.background = { color: C.white };
@@ -1081,8 +1096,10 @@ async function downloadPPT(btn) {
   });
 
   /* ══ SLIDE 9: YIELD % ══ */
+  await setProgress("Building slide 9 / 14 — Yield %…");
   addMetricSlide('Yield % — LY vs CY', 'Production yield percentage · Monthly Average', 8, C.green, 'Yield %');
 
+  await setProgress("Building slide 10 / 14 — HR Analysis…");
   /* ══ SLIDE 10: HR ANALYSIS ══ */
   const s10 = pres.addSlide();
   s10.background = { color: C.white };
@@ -1116,8 +1133,10 @@ async function downloadPPT(btn) {
   });
 
   /* ══ SLIDE 11: MATERIALS COST % ══ */
+  await setProgress("Building slide 11 / 14 — Materials Cost…");
   addMetricSlide('Materials Cost % — LY vs CY', 'Material cost as percentage of total cost', 7, C.red, 'Materials Cost %');
 
+  await setProgress("Building slide 12 / 14 — Data Table…");
   /* ══ SLIDE 12: FULL DATA TABLE ══ */
   const s12 = pres.addSlide();
   s12.background = { color: C.white };
@@ -1156,6 +1175,7 @@ async function downloadPPT(btn) {
     colW:[3.4, 1.25, 1.8, 1.85, 1.62, 1.55]
   });
 
+  await setProgress("Building slide 13 / 14 — Growth Ranking…");
   /* ══ SLIDE 13: GROWTH RANKING — HORIZONTAL BARS ══ */
   const s13 = pres.addSlide();
   s13.background = { color: C.white };
@@ -1180,6 +1200,7 @@ async function downloadPPT(btn) {
     showLegend:false,
   });
 
+  await setProgress("Building slide 14 / 14 — Key Takeaways…");
   /* ══ SLIDE 14: KEY TAKEAWAYS ══ */
   const s14 = pres.addSlide();
   s14.background = { color: C.deep };
@@ -1213,6 +1234,7 @@ async function downloadPPT(btn) {
     fontSize:9, color:'3A5070', fontFace:FONT, align:'center', italic:true
   });
 
+  await setProgress("Saving file — please wait…");
   /* ── Save ── */
   await pres.writeFile({ fileName: 'RAJ-PAL_Dashboard.pptx' });
   btn.innerHTML = orig; btn.disabled = false;
