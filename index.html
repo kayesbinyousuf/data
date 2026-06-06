@@ -740,8 +740,93 @@ async function downloadPPT(btn) {
     });
   }
 
-  // Helper: single metric bar+growth slide
-  function addMetricSlide(title, sub, rowIdx, accentColor, chartTitle, tag) {
+  // Helper: gauge SVG → base64 PNG (drawn on canvas, returned as data URI)
+  function buildGaugeSvgDataUrl(growthPct, accentHex) {
+    const W = 400, H = 230;
+    const cx = W/2, cy = H - 20;
+    const R = 160, r = 110;
+    // zones: 0–60% scale
+    const zones = [
+      {start:0,   end:36,  color:'#d32f2f', lbl:'VERY LOW'},
+      {start:36,  end:72,  color:'#f57c00', lbl:'LOW'},
+      {start:72,  end:108, color:'#f9a825', lbl:'FAIR'},
+      {start:108, end:144, color:'#7cb342', lbl:'GOOD'},
+      {start:144, end:180, color:'#2e7d32', lbl:'EXCELLENT'},
+    ];
+    function polar(deg, rad) {
+      const a = (Math.PI/180)*deg;
+      return {x: cx - rad*Math.cos(a), y: cy - rad*Math.sin(a)};
+    }
+    function arcPath(s, e, ro, ri) {
+      const p1=polar(s,ro), p2=polar(e,ro), p3=polar(e,ri), p4=polar(s,ri);
+      const lg=(e-s)>180?1:0;
+      return `M${p1.x},${p1.y} A${ro},${ro} 0 ${lg} 0 ${p2.x},${p2.y} L${p3.x},${p3.y} A${ri},${ri} 0 ${lg} 1 ${p4.x},${p4.y} Z`;
+    }
+    // clamp
+    const pct = Math.min(Math.max(growthPct, 0), 60);
+    const needleDeg = (pct/60)*180;
+    const needleRad = (Math.PI/180)*needleDeg;
+    const nx = cx - (r-10)*Math.cos(needleRad);
+    const ny = cy - (r-10)*Math.sin(needleRad);
+    const b1 = polar(needleDeg+90, 10);
+    const b2 = polar(needleDeg-90, 10);
+
+    // zone label & color
+    let zoneColor = '#2e7d32', zoneLabel = 'EXCELLENT';
+    if (growthPct < 10) { zoneColor='#d32f2f'; zoneLabel='VERY LOW'; }
+    else if (growthPct < 20) { zoneColor='#f57c00'; zoneLabel='LOW'; }
+    else if (growthPct < 30) { zoneColor='#f9a825'; zoneLabel='FAIR'; }
+    else if (growthPct < 45) { zoneColor='#7cb342'; zoneLabel='GOOD'; }
+
+    let arcPaths = zones.map(z =>
+      `<path d="${arcPath(z.start,z.end,R,r)}" fill="${z.color}" opacity="0.92"/>`
+    ).join('');
+
+    // tick marks
+    let ticks = '';
+    for (let d=0;d<=180;d+=18) {
+      const p1=polar(d,R+4), p2=polar(d,R+12);
+      ticks += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#555" stroke-width="2"/>`;
+    }
+    // % labels around arc
+    const labelPcts = [0,10,20,30,40,50,60];
+    let labels = labelPcts.map(v => {
+      const deg = (v/60)*180;
+      const p = polar(deg, R+22);
+      return `<text x="${p.x}" y="${p.y}" text-anchor="middle" dominant-baseline="middle" font-family="Calibri,sans-serif" font-size="14" fill="#444">${v}%</text>`;
+    }).join('');
+    // separators
+    let seps = [36,72,108,144].map(d => {
+      const p1=polar(d,r-4), p2=polar(d,R+2);
+      return `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="white" stroke-width="2.5"/>`;
+    }).join('');
+    // zone mini labels
+    const zoneMids=[18,54,90,126,162], zoneShort=['VERY\nLOW','LOW','FAIR','GOOD','EXCL.'];
+    let zoneTexts = zoneMids.map((deg,i)=>{
+      const mp=polar(deg,(R+r)/2);
+      const lines=zoneShort[i].split('\n');
+      if(lines.length===2) return `<text x="${mp.x}" y="${mp.y-7}" text-anchor="middle" font-family="Calibri,sans-serif" font-size="11" font-weight="700" fill="white">${lines[0]}</text><text x="${mp.x}" y="${mp.y+6}" text-anchor="middle" font-family="Calibri,sans-serif" font-size="11" font-weight="700" fill="white">${lines[1]}</text>`;
+      return `<text x="${mp.x}" y="${mp.y+4}" text-anchor="middle" font-family="Calibri,sans-serif" font-size="11" font-weight="700" fill="white">${lines[0]}</text>`;
+    }).join('');
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+      <rect width="${W}" height="${H}" fill="white"/>
+      ${arcPaths}${seps}${ticks}${labels}${zoneTexts}
+      <path d="M${b1.x},${b1.y} L${nx},${ny} L${b2.x},${b2.y} Z" fill="#1a1a2e" opacity="0.85"/>
+      <path d="M${b1.x+1},${b1.y+1} L${nx+1},${ny+1} L${b2.x+1},${b2.y+1} Z" fill="rgba(0,0,0,0.18)"/>
+      <circle cx="${cx}" cy="${cy}" r="14" fill="#1a1a2e"/>
+      <circle cx="${cx}" cy="${cy}" r="7" fill="white"/>
+      <text x="${cx}" y="${cy-18}" text-anchor="middle" font-family="Calibri,sans-serif" font-size="11" fill="#666" font-weight="700" letter-spacing="2">GROWTH METER</text>
+      <text x="${cx}" y="${cy+35}" text-anchor="middle" font-family="Calibri,sans-serif" font-size="44" font-weight="800" fill="${accentHex||zoneColor}">${growthPct}%</text>
+      <text x="${cx}" y="${cy+60}" text-anchor="middle" font-family="Calibri,sans-serif" font-size="16" font-weight="700" fill="${zoneColor}" letter-spacing="1">${zoneLabel}</text>
+    </svg>`;
+
+    const b64 = btoa(unescape(encodeURIComponent(svg)));
+    return 'image/svg+xml;base64,' + b64;
+  }
+
+  // Helper: single metric slide — UI layout: gauge top, bar bottom, matches HTML exactly
+  function addMetricSlide(title, sub, rowIdx, accentColor, chartTitle) {
     const sl = pres.addSlide();
     sl.background = { color: C.white };
     addHeader(sl, title, sub);
@@ -750,75 +835,110 @@ async function downloadPPT(btn) {
     const r = DASH.rows[rowIdx];
     const g = rowGrowth(r);
     const good = isGoodGrowth(rowIdx, g);
+    const gcol = good ? C.green : C.red;
+    const arrow = g >= 0 ? '▲' : '▼';
 
-    // Bar chart (left 2/3)
+    // ── LEFT COLUMN: Gauge (top) + Bar chart (bottom) ──
+    // Gauge image (top half of left col)
+    const gaugeData = buildGaugeSvgDataUrl(Math.abs(g), '#'+accentColor);
+    sl.addImage({ data: gaugeData, x:0.28, y:1.05, w:5.5, h:3.2 });
+
+    // Bar chart (bottom half of left col)
     sl.addChart(pres.charts.BAR, [
       { name:'Last Year (LY)',    labels:[chartTitle], values:[r.ly] },
       { name:'Current Year (CY)', labels:[chartTitle], values:[r.cy] },
     ], {
-      x:0.28, y:1.0, w:8.5, h:6.1,
+      x:0.28, y:4.35, w:5.5, h:2.75,
       barDir:'col', barGapWidthPct:55,
       chartColors:[ lyHex, accentColor ],
       chartArea:{ fill:{color:C.white} },
       catAxisLabelColor:C.muted, valAxisLabelColor:C.muted,
       valGridLine:{color:'E2E8F0',size:0.5}, catGridLine:{style:'none'},
-      showValue:true, dataLabelColor:C.deep, dataLabelFontSize:11, dataLabelFontBold:true,
+      showValue:true, dataLabelColor:C.deep, dataLabelFontSize:10, dataLabelFontBold:true,
       legendPos:'b', showLegend:true,
-      showTitle:true, title:chartTitle, titleFontSize:12, titleColor:C.deep, titleFontBold:true,
+      showTitle:false,
     });
 
-    // Right panel: KPI summary
-    const gcol = good ? C.green : C.red;
-    const arrow = g >= 0 ? '▲' : '▼';
+    // ── RIGHT COLUMN: KPI summary panel ──
     sl.addShape(pres.shapes.RECTANGLE, {
-      x:9.1, y:1.0, w:4.0, h:6.1,
+      x:6.2, y:1.05, w:6.88, h:6.1,
       fill:{color:C.light}, line:{color:C.border, pt:0.8}
     });
     sl.addShape(pres.shapes.RECTANGLE, {
-      x:9.1, y:1.0, w:4.0, h:0.06,
+      x:6.2, y:1.05, w:6.88, h:0.07,
       fill:{color:accentColor}, line:{color:accentColor}
     });
-    sl.addText('Last Year (LY)', {
-      x:9.2, y:1.2, w:3.8, h:0.28,
-      fontSize:9, color:C.muted, fontFace:FONT, bold:true
+
+    // Metric title in panel
+    sl.addText(chartTitle, {
+      x:6.35, y:1.18, w:6.6, h:0.32,
+      fontSize:11, color:C.muted, fontFace:FONT, bold:true, charSpacing:0.5
     });
-    sl.addText(String(r.ly) + (r.unit==='%'?'%':''), {
-      x:9.2, y:1.48, w:3.8, h:0.65,
-      fontSize:26, bold:true, color:C.muted, fontFace:FONT
+
+    // LY value
+    sl.addText('LAST YEAR (LY)', {
+      x:6.35, y:1.65, w:6.6, h:0.25,
+      fontSize:8, color:C.muted, fontFace:FONT, bold:true, charSpacing:1
     });
-    sl.addText('Current Year (CY)', {
-      x:9.2, y:2.28, w:3.8, h:0.28,
-      fontSize:9, color:C.muted, fontFace:FONT, bold:true
+    sl.addText(r.unit==='BDT' ? fmtLakh(r.ly) : String(r.ly)+(r.unit==='%'?'%':''), {
+      x:6.35, y:1.9, w:6.6, h:0.7,
+      fontSize:30, bold:true, color:C.muted, fontFace:FONT
     });
-    sl.addText(String(r.cy) + (r.unit==='%'?'%':''), {
-      x:9.2, y:2.56, w:3.8, h:0.65,
-      fontSize:32, bold:true, color:accentColor, fontFace:FONT
+
+    // CY value
+    sl.addText('CURRENT YEAR (CY)', {
+      x:6.35, y:2.72, w:6.6, h:0.25,
+      fontSize:8, color:C.muted, fontFace:FONT, bold:true, charSpacing:1
     });
+    sl.addText(r.unit==='BDT' ? fmtLakh(r.cy) : String(r.cy)+(r.unit==='%'?'%':''), {
+      x:6.35, y:2.97, w:6.6, h:0.7,
+      fontSize:36, bold:true, color:accentColor, fontFace:FONT
+    });
+
+    // Divider
     sl.addShape(pres.shapes.RECTANGLE, {
-      x:9.1, y:3.4, w:4.0, h:0.01,
+      x:6.2, y:3.78, w:6.88, h:0.01,
       fill:{color:C.border}, line:{color:C.border}
     });
-    sl.addText('YoY Growth', {
-      x:9.2, y:3.55, w:3.8, h:0.28,
-      fontSize:9, color:C.muted, fontFace:FONT, bold:true
+
+    // Growth
+    sl.addText('YoY GROWTH', {
+      x:6.35, y:3.9, w:6.6, h:0.25,
+      fontSize:8, color:C.muted, fontFace:FONT, bold:true, charSpacing:1
     });
     sl.addText(arrow + ' ' + Math.abs(g) + '%', {
-      x:9.2, y:3.83, w:3.8, h:0.75,
-      fontSize:38, bold:true, color:gcol, fontFace:FONT
+      x:6.35, y:4.15, w:6.6, h:0.9,
+      fontSize:48, bold:true, color:gcol, fontFace:FONT
     });
-    // Performance zone
-    let zone = 'Excellent';
-    if (Math.abs(g) < 10) zone = 'Very Low';
-    else if (Math.abs(g) < 20) zone = 'Good';
-    else if (Math.abs(g) < 35) zone = 'Strong';
+
+    // Zone label
+    let zone = 'EXCELLENT';
+    if (Math.abs(g) < 10) zone = 'VERY LOW';
+    else if (Math.abs(g) < 20) zone = 'LOW';
+    else if (Math.abs(g) < 30) zone = 'FAIR';
+    else if (Math.abs(g) < 45) zone = 'GOOD';
     sl.addText(zone, {
-      x:9.2, y:4.7, w:3.8, h:0.3,
-      fontSize:12, color:gcol, fontFace:FONT, bold:true, italic:true
+      x:6.35, y:5.18, w:6.6, h:0.32,
+      fontSize:14, color:gcol, fontFace:FONT, bold:true, italic:true
     });
-    sl.addText('Unit: ' + r.unit + '  |  LY→CY: ' + r.ly + '→' + r.cy, {
-      x:9.2, y:5.2, w:3.8, h:0.3,
-      fontSize:9, color:C.muted, fontFace:FONT
+
+    // LY → CY detail line
+    sl.addText('Unit: ' + r.unit + '   |   LY → CY :   ' + r.ly + '  →  ' + r.cy, {
+      x:6.35, y:5.6, w:6.6, h:0.3,
+      fontSize:10, color:C.muted, fontFace:FONT
     });
+
+    // Comparison tag (matching the UI tag)
+    const tagBg = good ? 'E9F7EF' : 'FDECEA';
+    sl.addShape(pres.shapes.ROUNDED_RECTANGLE, {
+      x:6.35, y:6.05, w:2.0, h:0.32,
+      fill:{color:tagBg}, line:{color:tagBg}, rectRadius:0.08
+    });
+    sl.addText((g>=0?'+':'')+g+'% vs LY', {
+      x:6.35, y:6.05, w:2.0, h:0.32,
+      fontSize:10, bold:true, color:gcol, fontFace:FONT, align:'center', valign:'middle'
+    });
+
     return sl;
   }
 
