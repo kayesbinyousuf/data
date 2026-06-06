@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RAJ-PAL | Performance Dashboard</title>
+<title>PAL-RAJ | Performance Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -260,15 +260,85 @@
     main{padding:24px 16px} header{padding:0 16px} nav{display:none}
     .kpi-grid{grid-template-columns:1fr 1fr;gap:12px}
   }
+
+  /* ── QUICK EDIT PANEL ── */
+  .qe-overlay {
+    display:none; position:fixed; inset:0; background:rgba(13,27,62,0.45);
+    z-index:1000; backdrop-filter:blur(2px);
+  }
+  .qe-overlay.open { display:flex; align-items:center; justify-content:center; }
+  .qe-box {
+    background:#fff; border-radius:16px; width:min(740px,96vw);
+    max-height:88vh; overflow-y:auto; box-shadow:0 12px 56px rgba(13,27,62,0.22);
+    animation:fadeUp .25s ease both;
+  }
+  .qe-head {
+    position:sticky; top:0; background:#fff; border-bottom:1px solid var(--border);
+    padding:18px 28px 14px; display:flex; align-items:center; justify-content:space-between;
+    z-index:2;
+  }
+  .qe-head-title { font-size:16px; font-weight:700; color:var(--deep); }
+  .qe-head-sub   { font-size:11px; color:var(--muted); }
+  .qe-close {
+    background:none; border:none; cursor:pointer; font-size:22px;
+    color:var(--muted); line-height:1; padding:4px 8px; border-radius:8px;
+  }
+  .qe-close:hover { background:var(--surface2); color:var(--deep); }
+  .qe-body { padding:20px 28px 28px; }
+  .qe-row {
+    display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:14px;
+    padding-bottom:14px; border-bottom:1px solid var(--surface2);
+  }
+  .qe-row:last-child { border-bottom:none; margin-bottom:0; }
+  .qe-metric-label {
+    font-size:12px; font-weight:700; color:var(--deep);
+    margin-bottom:6px; letter-spacing:.3px;
+  }
+  .qe-metric-unit { font-size:10px; color:var(--muted); margin-bottom:8px; }
+  .qe-spin {
+    display:flex; align-items:center; gap:8px;
+  }
+  .qe-spin input {
+    width:130px; border:1.5px solid var(--border); border-radius:8px;
+    padding:6px 10px; font-family:Calibri,'Segoe UI',sans-serif;
+    font-size:13px; color:var(--deep); background:var(--surface);
+    text-align:right; outline:none; transition:border .15s;
+  }
+  .qe-spin input:focus { border-color:var(--mid); background:#fff; }
+  .qe-btn {
+    width:30px; height:30px; border-radius:8px; border:1.5px solid var(--border);
+    background:var(--surface); cursor:pointer; font-size:17px; font-weight:700;
+    color:var(--deep); display:flex; align-items:center; justify-content:center;
+    transition:background .15s, border .15s;
+  }
+  .qe-btn:hover { background:var(--mid); border-color:var(--mid); color:#fff; }
+  .qe-col-head { font-size:10px; text-transform:uppercase; letter-spacing:1.5px;
+    color:var(--muted); font-weight:700; margin-bottom:4px; }
+  .qe-apply {
+    display:block; width:100%; margin-top:20px; padding:12px;
+    background:var(--mid); color:#fff; font-family:Calibri,'Segoe UI',sans-serif;
+    font-size:14px; font-weight:700; letter-spacing:.5px; border:none;
+    border-radius:10px; cursor:pointer; transition:background .15s;
+  }
+  .qe-apply:hover { background:var(--blue); }
+  .qe-reset {
+    display:block; width:100%; margin-top:8px; padding:9px;
+    background:none; color:var(--muted); font-family:Calibri,'Segoe UI',sans-serif;
+    font-size:12px; font-weight:600; border:1.5px solid var(--border);
+    border-radius:10px; cursor:pointer; transition:all .15s;
+  }
+  .qe-reset:hover { border-color:var(--red); color:var(--red); background:#fdecea; }
+  .dl-fab.edit { background: var(--mid); color: #fff; }
+  .dl-fab.edit:hover { background: var(--blue); }
 </style>
 </head>
 <body>
 
 <header>
   <div class="logo-block">
-    <div class="logo-badge">RP</div>
+    <div class="logo-badge">PR</div>
     <div>
-      <div class="logo-text">RAJ-PAL</div>
+      <div class="logo-text">PAL-RAJ</div>
       <div class="logo-sub">Performance Analytics</div>
     </div>
   </div>
@@ -280,7 +350,7 @@
   </nav>
   <div class="live-chip">
     <div class="live-dot"></div>
-    Monthly Average &nbsp;·&nbsp; CY vs LY
+    10-Month Sum &nbsp;·&nbsp; CY vs LY
   </div>
 </header>
 
@@ -288,13 +358,13 @@
 
   <!-- KPI CARDS -->
   <div class="section-eyebrow">Key Performance Indicators</div>
-  <div class="section-heading">RAJ-PAL Monthly Dashboard</div>
+  <div class="section-heading">PAL-RAJ Monthly Dashboard</div>
 
   <div class="kpi-grid">
     <div class="kpi-card blue">
       <div class="kpi-label">X-Tk (Current Year)</div>
-      <div class="kpi-value">31.17L</div>
-      <div class="kpi-sub"><span class="badge-up">▲ 58%</span> vs LY: 19.75L</div>
+      <div class="kpi-value">311.79Cr</div>
+      <div class="kpi-sub"><span class="badge-up">▲ 58%</span> vs LY: 197.58Cr</div>
     </div>
     <div class="kpi-card green">
       <div class="kpi-label">T-Ton (Current Year)</div>
@@ -415,7 +485,7 @@
         <div class="chart-panel-title">Complete Metrics Growth — LY vs CY (All Particulars)</div>
         <div class="chart-panel-sub">Grouped comparison across all 10 performance indicators</div>
       </div>
-      <span class="tag tag-blue">RAJ-PAL Unit</span>
+      <span class="tag tag-blue">PAL-RAJ Unit</span>
     </div>
     <div style="padding:24px 28px 20px; height:280px; position:relative"><canvas id="cAll"></canvas></div>
   </div>
@@ -501,14 +571,14 @@
 
   <div class="panel" style="margin-bottom:24px">
     <div class="panel-head">
-      <div class="panel-title">Performance Particulars — Monthly Average</div>
-      <span class="tag tag-blue">RAJ-PAL Unit</span>
+      <div class="panel-title">Performance Particulars — 10-Month Sum</div>
+      <span class="tag tag-blue">PAL-RAJ Unit</span>
     </div>
     <table class="data-table">
       <thead><tr><th>Particular</th><th>LY</th><th>CY</th><th>Diff</th><th>Growth</th></tr></thead>
       <tbody>
-        <tr><td>X-Tk</td><td class="val-ly">1,975,802</td><td class="val-cy">3,117,995</td><td class="diff-pos">+1,142,192</td><td><span class="pill pill-hi">58%</span></td></tr>
-        <tr><td>T-Ton</td><td class="val-ly">9,785</td><td class="val-cy">11,705</td><td class="diff-pos">+1,920</td><td><span class="pill pill-mid">20%</span></td></tr>
+        <tr><td>X-Tk</td><td class="val-ly">197.58 Cr</td><td class="val-cy">311.79 Cr</td><td class="diff-pos">+114.21 Cr</td><td><span class="pill pill-hi">58%</span></td></tr>
+        <tr><td>T-Ton</td><td class="val-ly">97,85,000</td><td class="val-cy">1,17,05,000</td><td class="diff-pos">+19,20,000</td><td><span class="pill pill-mid">20%</span></td></tr>
         <tr><td class="row-hl">Productivity (Kg/Man-Hr)</td><td class="val-ly">56</td><td class="val-cy">75</td><td class="diff-pos">+19</td><td><span class="pill pill-hi">34%</span></td></tr>
         <tr><td class="row-hl">HR (Nos)</td><td class="val-ly">510</td><td class="val-cy">545</td><td class="diff-pos">+35</td><td><span class="pill pill-low">7%</span></td></tr>
         <tr><td>HR Cost / Kg</td><td class="val-ly">9.93</td><td class="val-cy">10.06</td><td class="diff-zero">—</td><td><span class="pill pill-low">1%</span></td></tr>
@@ -533,15 +603,33 @@
 
 <footer>
   <div style="display:flex;align-items:center;gap:10px">
-    <div style="width:28px;height:28px;background:rgba(255,255,255,0.1);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff">RP</div>
-    <strong>RAJ-PAL Analytics</strong>
+    <div style="width:28px;height:28px;background:rgba(255,255,255,0.1);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff">PR</div>
+    <strong>PAL-RAJ Analytics</strong>
   </div>
-  <span>Monthly Average &nbsp;·&nbsp; FY Year-on-Year Comparison &nbsp;·&nbsp; Data: Internal MIS</span>
+  <span>10-Month Sum &nbsp;·&nbsp; FY Year-on-Year Comparison &nbsp;·&nbsp; Data: Internal MIS</span>
   <span id="footerDate"></span>
 </footer>
 
+<!-- QUICK EDIT OVERLAY -->
+<div class="qe-overlay" id="qeOverlay">
+  <div class="qe-box">
+    <div class="qe-head">
+      <div>
+        <div class="qe-head-title">✏️ Quick Edit — Data Values</div>
+        <div class="qe-head-sub">Plus/minus to adjust · Changes update all charts &amp; KPIs</div>
+      </div>
+      <button class="qe-close" onclick="closeQE()">✕</button>
+    </div>
+    <div class="qe-body" id="qeBody"></div>
+  </div>
+</div>
+
 <!-- FLOATING DOWNLOAD BUTTONS -->
 <div class="dl-fab-wrap">
+  <button class="dl-fab edit" onclick="openQE()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    Quick Edit
+  </button>
   <button class="dl-fab xls" onclick="downloadExcel(this)">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     Download Excel
@@ -553,13 +641,13 @@
    MASTER DATA — single source of truth
    ══════════════════════════════════════════════════ */
 const DASH = {
-  title:   'RAJ-PAL Performance Dashboard',
-  unit:    'RAJ-PAL Unit',
-  period:  'Monthly Average — CY vs LY',
+  title:   'PAL-RAJ Performance Dashboard',
+  unit:    'PAL-RAJ Unit',
+  period:  '10-Month Sum — CY vs LY',
   source:  'Internal MIS',
   rows: [
-    { label:'X-Tk Revenue',           unit:'BDT',     ly:1975802, cy:3117995 },
-    { label:'T-Ton Volume',            unit:'Tons',    ly:9785,    cy:11705   },
+    { label:'X-Tk Revenue',           unit:'BDT',     ly:1975802000, cy:3117995000 },
+    { label:'T-Ton Volume',            unit:'Tons',    ly:9785000,    cy:11705000   },
     { label:'Productivity (Kg/Man-Hr)',unit:'Kg/MH',  ly:56,      cy:75      },
     { label:'HR Count (Nos)',           unit:'Nos',    ly:510,     cy:545     },
     { label:'HR Cost / Kg',            unit:'BDT/Kg', ly:9.93,    cy:10.06   },
@@ -581,10 +669,12 @@ function isGoodGrowth(i, g) {
   return COST_ROWS.includes(i) ? g <= 0 : g >= 0;
 }
 
-function fmtLakh(v) {
+function fmtCrore(v) {
+  if (v >= 10000000) return (v/10000000).toFixed(2) + ' Cr';
   if (v >= 100000) return (v/100000).toFixed(2) + 'L';
   return v.toLocaleString('en-IN');
 }
+function fmtLakh(v) { return fmtCrore(v); }
 
 /* ══════════════════════════════════════════════════
    DOWNLOAD EXCEL
@@ -608,7 +698,7 @@ function downloadExcel(btn) {
       return [r.label, r.unit, r.ly, r.cy, diff, (g>=0?'+':'')+g+'%'];
     }),
     [],
-    ['Note: All values are monthly averages.'],
+    ['Note: X-Tk Revenue and T-Ton Volume are 10-Month Sums. Other values are monthly averages.'],
   ];
   const ws1 = XLSX.utils.aoa_to_sheet(ws1data);
   ws1['!merges'] = [{s:{r:0,c:0},e:{r:0,c:5}},{s:{r:1,c:0},e:{r:1,c:5}}];
@@ -627,7 +717,7 @@ function downloadExcel(btn) {
   ws2['!cols'] = [{wch:32},{wch:14},{wch:14},{wch:12},{wch:18}];
   XLSX.utils.book_append_sheet(wb, ws2, 'Chart Data');
 
-  XLSX.writeFile(wb, 'RAJ-PAL_Dashboard.xlsx');
+  XLSX.writeFile(wb, 'PAL-RAJ_Dashboard.xlsx');
   setTimeout(()=>{ btn.innerHTML = orig; btn.disabled = false; }, 800);
 }
 </script>
@@ -986,20 +1076,20 @@ const chartXtk = new Chart(document.getElementById('cXtk'), {
   data:{
     labels:['X-Tk Revenue'],
     datasets:[
-      { label:'Last Year (LY)', data:[1975802], backgroundColor:lyColor2, borderColor:lyBorder2, borderWidth:2, borderRadius:6 },
-      { label:'Current Year (CY)', data:[3117995], backgroundColor:'rgba(26,60,143,0.85)', borderColor:'#1a3c8f', borderWidth:2, borderRadius:6 }
+      { label:'Last Year (LY)', data:[1975802000], backgroundColor:lyColor2, borderColor:lyBorder2, borderWidth:2, borderRadius:6 },
+      { label:'Current Year (CY)', data:[3117995000], backgroundColor:'rgba(26,60,143,0.85)', borderColor:'#1a3c8f', borderWidth:2, borderRadius:6 }
     ]
   },
   options:{...baseOpts(), plugins:{...baseOpts().plugins}, scales:{
     x:{ticks:{font:{family:FONT,size:12}},grid:{color:'rgba(220,228,240,0.5)'}},
-    y:{ticks:{font:{family:FONT,size:12},callback:v=>(v/100000).toFixed(1)+'L'},grid:{color:'rgba(220,228,240,0.5)'}}
+    y:{ticks:{font:{family:FONT,size:12},callback:v=>(v/10000000).toFixed(1)+' Cr'},grid:{color:'rgba(220,228,240,0.5)'}}
   }}
 });
 
 const chartTton = new Chart(document.getElementById('cTton'), {
   type:'bar', data:{labels:['T-Ton Volume'], datasets:[
-    { label:'Last Year (LY)', data:[9785],  backgroundColor:'rgba(29,131,72,0.3)', borderColor:'rgba(29,131,72,0.7)', borderWidth:2, borderRadius:6 },
-    { label:'Current Year (CY)', data:[11705], backgroundColor:'rgba(29,131,72,0.85)', borderColor:'#1d8348', borderWidth:2, borderRadius:6 }
+    { label:'Last Year (LY)', data:[9785000],  backgroundColor:'rgba(29,131,72,0.3)', borderColor:'rgba(29,131,72,0.7)', borderWidth:2, borderRadius:6 },
+    { label:'Current Year (CY)', data:[11705000], backgroundColor:'rgba(29,131,72,0.85)', borderColor:'#1d8348', borderWidth:2, borderRadius:6 }
   ]}, options:baseOpts()
 });
 
@@ -1018,8 +1108,8 @@ const chartCost = new Chart(document.getElementById('cCost'), {
 });
 
 const allLabels = ['X-Tk Rev','T-Ton Vol','Productivity','HR Nos','HR Cost/Kg','Utility/Kg','Maint/Kg','Mat Cost%','Yield%','Conv Cost/Kg'];
-const lyRaw  = [1975802, 9785, 56, 510, 9.93, 4.94, 0.87, 10, 15, 19.2];
-const cyRaw  = [3117995, 11705, 75, 545, 10.06, 5.67, 0.94, 12, 20, 22.39];
+const lyRaw  = [1975802000, 9785000, 56, 510, 9.93, 4.94, 0.87, 10, 15, 19.2];
+const cyRaw  = [3117995000, 11705000, 75, 545, 10.06, 5.67, 0.94, 12, 20, 22.39];
 // Compute % growth for each metric
 const growthData = lyRaw.map((ly, i) => parseFloat(((cyRaw[i] - ly) / ly * 100).toFixed(1)));
 // Color: green for positive growth metrics (revenue/vol/prod/yield), red for cost increases
@@ -1137,6 +1227,237 @@ hBars.forEach((b,i)=>{
   </div>`;
 });
 setTimeout(()=>{ hBars.forEach((b,i)=>{ setTimeout(()=>{ const el=document.getElementById('hb'+i); if(el) el.style.width=b.pct+'%'; },100+i*60); }); },400);
+</script>
+
+<!-- ══════════════════════════════════════════════════
+     QUICK EDIT SYSTEM
+     ══════════════════════════════════════════════════ -->
+<script>
+/* Step increments per metric */
+const QE_STEP = [
+  1000000,  // X-Tk Revenue (1M steps)
+  100000,   // T-Ton Volume
+  1,        // Productivity
+  5,        // HR Count
+  0.1,      // HR Cost/Kg
+  0.1,      // Utility Cost/Kg
+  0.01,     // Maintenance Cost/Kg
+  1,        // Materials Cost %
+  1,        // Yield %
+  0.1,      // Conversion Cost/Kg
+];
+
+const QE_DECIMALS = [0,0,0,0,2,2,2,1,1,2];
+
+function openQE() {
+  const overlay = document.getElementById('qeOverlay');
+  const body    = document.getElementById('qeBody');
+  body.innerHTML = '';
+
+  DASH.rows.forEach((row, i) => {
+    const lyId = `qeLY_${i}`, cyId = `qeCY_${i}`;
+    const dec = QE_DECIMALS[i];
+    const step = QE_STEP[i];
+
+    // Format display: crore for X-Tk/T-Ton, else raw
+    const fmt = v => i <= 1 ? fmtCrore(v) : (Number.isInteger(v) ? v : v.toFixed(dec));
+
+    body.innerHTML += `
+    <div class="qe-row">
+      <div style="grid-column:1/-1">
+        <div class="qe-metric-label">${row.label}</div>
+        <div class="qe-metric-unit">Unit: ${row.unit}${i<=1?' (10-Month Sum)':' (Monthly Avg)'}</div>
+      </div>
+      <div>
+        <div class="qe-col-head">Last Year (LY)</div>
+        <div class="qe-spin">
+          <button class="qe-btn" onclick="qeAdjust(${i},'ly',-1)">−</button>
+          <input type="number" id="${lyId}" value="${row.ly.toFixed ? row.ly.toFixed(dec) : row.ly}" step="${step}" onchange="qeManual(${i},'ly',this.value)">
+          <button class="qe-btn" onclick="qeAdjust(${i},'ly',1)">+</button>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${fmt(row.ly)}</div>
+      </div>
+      <div>
+        <div class="qe-col-head">Current Year (CY)</div>
+        <div class="qe-spin">
+          <button class="qe-btn" onclick="qeAdjust(${i},'cy',-1)">−</button>
+          <input type="number" id="${cyId}" value="${row.cy.toFixed ? row.cy.toFixed(dec) : row.cy}" step="${step}" onchange="qeManual(${i},'cy',this.value)">
+          <button class="qe-btn" onclick="qeAdjust(${i},'cy',1)">+</button>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${fmt(row.cy)}</div>
+      </div>
+    </div>`;
+  });
+
+  body.innerHTML += `<button class="qe-apply" onclick="qeApplyAll()">✓ Apply Changes & Refresh Dashboard</button>`;
+  body.innerHTML += `<button class="qe-reset" onclick="qeResetAll()">↺ Reset to Original Values</button>`;
+
+  overlay.classList.add('open');
+}
+
+function closeQE() {
+  document.getElementById('qeOverlay').classList.remove('open');
+}
+document.getElementById('qeOverlay').addEventListener('click', e => { if(e.target===e.currentTarget) closeQE(); });
+
+const QE_ORIG = DASH.rows.map(r => ({ly:r.ly, cy:r.cy}));
+
+function qeAdjust(i, field, dir) {
+  const step = QE_STEP[i];
+  const dec  = QE_DECIMALS[i];
+  const id   = `qe${field==='ly'?'LY':'CY'}_${i}`;
+  const inp  = document.getElementById(id);
+  let val = parseFloat(inp.value) + dir * step;
+  if (val < 0) val = 0;
+  inp.value = val.toFixed(dec);
+  DASH.rows[i][field] = val;
+  // Update hint
+  const hint = inp.closest('.qe-spin').nextElementSibling;
+  if (hint) hint.textContent = i<=1 ? fmtCrore(val) : (dec>0?val.toFixed(dec):val);
+}
+
+function qeManual(i, field, val) {
+  DASH.rows[i][field] = parseFloat(val)||0;
+}
+
+function qeApplyAll() {
+  // Sync inputs → DASH
+  DASH.rows.forEach((row, i) => {
+    const lyv = parseFloat(document.getElementById(`qeLY_${i}`).value)||0;
+    const cyv = parseFloat(document.getElementById(`qeCY_${i}`).value)||0;
+    row.ly = lyv; row.cy = cyv;
+  });
+
+  closeQE();
+  refreshDashboard();
+}
+
+function qeResetAll() {
+  QE_ORIG.forEach((orig, i) => { DASH.rows[i].ly = orig.ly; DASH.rows[i].cy = orig.cy; });
+  closeQE();
+  refreshDashboard();
+}
+
+function refreshDashboard() {
+  const rows = DASH.rows;
+
+  // ── KPI Cards ──
+  const xtkRow = rows[0], ttonRow = rows[1], prodRow = rows[2], costRow = rows[9];
+  const xtkGrowth = rowGrowth(xtkRow), ttonGrowth = rowGrowth(ttonRow);
+  const prodGrowth = rowGrowth(prodRow), costGrowth = rowGrowth(costRow);
+
+  // Card 1: X-Tk
+  document.querySelector('.kpi-card.blue .kpi-value').textContent = fmtCrore(xtkRow.cy);
+  document.querySelector('.kpi-card.blue .kpi-sub').innerHTML =
+    `<span class="badge-${xtkGrowth>=0?'up':'warn'}">${xtkGrowth>=0?'▲':'▼'} ${Math.abs(xtkGrowth)}%</span> vs LY: ${fmtCrore(xtkRow.ly)}`;
+
+  // Card 2: T-Ton
+  document.querySelector('.kpi-card.green .kpi-value').textContent = fmtCrore(ttonRow.cy);
+  document.querySelector('.kpi-card.green .kpi-sub').innerHTML =
+    `<span class="badge-${ttonGrowth>=0?'up':'warn'}">${ttonGrowth>=0?'▲':'▼'} ${Math.abs(ttonGrowth)}%</span> vs LY: ${fmtCrore(ttonRow.ly)}`;
+
+  // Card 3: Productivity
+  document.querySelector('.kpi-card.gold .kpi-value').textContent = prodRow.cy;
+  document.querySelector('.kpi-card.gold .kpi-sub').innerHTML =
+    `<span class="badge-${prodGrowth>=0?'up':'warn'}">${prodGrowth>=0?'▲':'▼'} ${Math.abs(prodGrowth)}%</span> vs LY: ${prodRow.ly}`;
+
+  // Card 4: Conv Cost
+  document.querySelector('.kpi-card.red .kpi-value').textContent = costRow.cy;
+  document.querySelector('.kpi-card.red .kpi-sub').innerHTML =
+    `<span class="badge-warn">${costGrowth>=0?'▲':'▼'} ${Math.abs(costGrowth)}%</span> vs LY: ${costRow.ly}`;
+
+  // ── Chart data ──
+  chartXtk.data.datasets[0].data  = [rows[0].ly];
+  chartXtk.data.datasets[1].data  = [rows[0].cy];
+  chartXtk.update();
+
+  chartTton.data.datasets[0].data = [rows[1].ly];
+  chartTton.data.datasets[1].data = [rows[1].cy];
+  chartTton.update();
+
+  chartProd.data.datasets[0].data = [rows[2].ly];
+  chartProd.data.datasets[1].data = [rows[2].cy];
+  chartProd.update();
+
+  chartCost.data.datasets[0].data = [rows[9].ly];
+  chartCost.data.datasets[1].data = [rows[9].cy];
+  chartCost.update();
+
+  chartYield.data.datasets[0].data = [rows[8].ly];
+  chartYield.data.datasets[1].data = [rows[8].cy];
+  chartYield.update();
+
+  chartHR.data.datasets[0].data = [rows[3].ly, rows[4].ly];
+  chartHR.data.datasets[1].data = [rows[3].cy, rows[4].cy];
+  chartHR.update();
+
+  chartMat.data.datasets[0].data = [rows[7].ly];
+  chartMat.data.datasets[1].data = [rows[7].cy];
+  chartMat.update();
+
+  // ── All-metrics growth chart ──
+  const newGrowth = rows.map(r => parseFloat(((r.cy - r.ly) / Math.abs(r.ly) * 100).toFixed(1)));
+  chartAll.data.datasets[0].data = newGrowth;
+  chartAll.update();
+
+  // ── Update gauges ──
+  const gaugeIds = ['gXtk','gTton','gProd','gCost','gYield','gHR','gMat'];
+  const gaugeRowIdx = [0,1,2,9,8,3,7];
+  gaugeRowIdx.forEach((ri, gi) => {
+    const g = Math.abs(parseFloat(((rows[ri].cy - rows[ri].ly) / Math.abs(rows[ri].ly) * 100).toFixed(1)));
+    drawGaugeAnimated(gaugeIds[gi], g);
+    const valEl  = document.getElementById(gaugeIds[gi]+'Val');
+    const zoneEl = document.getElementById(gaugeIds[gi]+'Zone');
+    if (valEl) valEl.textContent = g + '%';
+    const zoneInfo = g>=45?{t:'Excellent',c:'#1d8348'}:g>=30?{t:'Good',c:'#1a3c8f'}:g>=15?{t:'Fair',c:'#b7860b'}:{t:'Poor',c:'#c0392b'};
+    if (valEl)  valEl.style.color  = zoneInfo.c;
+    if (zoneEl) { zoneEl.textContent = zoneInfo.t; zoneEl.style.color = zoneInfo.c; }
+  });
+
+  // ── Table rows ──
+  const tbody = document.querySelector('.data-table tbody');
+  if (tbody) {
+    const fmt2 = (v, i) => {
+      if (i===0) return fmtCrore(v);
+      if (i===1) return v.toLocaleString('en-IN');
+      if ([7,8].includes(i)) return v+'%';
+      return v;
+    };
+    const diffFmt = (v, i) => {
+      if (i===0) return (v>=0?'+':'')+fmtCrore(Math.abs(v));
+      if ([7,8].includes(i)) return (v>=0?'+':'')+v+'pp';
+      return (v>=0?'+':'')+parseFloat(v.toFixed(3));
+    };
+    const pills = ['pill-hi','pill-mid','pill-hi','pill-low','pill-low','pill-mid','pill-low','pill-warn','pill-hi','pill-low'];
+    Array.from(tbody.rows).forEach((tr, i) => {
+      if (i >= rows.length) return;
+      const r = rows[i];
+      const g = rowGrowth(r);
+      const diff = r.cy - r.ly;
+      tr.cells[1].textContent = fmt2(r.ly, i);
+      tr.cells[2].textContent = fmt2(r.cy, i);
+      tr.cells[3].textContent = diffFmt(diff, i);
+      tr.cells[3].className = diff>=0?'diff-pos':'badge-warn';
+      tr.cells[4].innerHTML = `<span class="pill ${pills[i]}">${Math.abs(g)}%</span>`;
+    });
+  }
+
+  // ── Horizontal bars ──
+  const bc2 = document.getElementById('barChart');
+  if (bc2) {
+    const growthPcts = rows.map(r => Math.abs(rowGrowth(r)));
+    const hBarMap = [0,2,8,1,7,9,5,6,3,4]; // indices matching hBars order
+    Array.from(bc2.querySelectorAll('.bar-row')).forEach((row2, idx) => {
+      const ri = hBarMap[idx];
+      const pct = growthPcts[ri];
+      const fill = row2.querySelector('.bar-fill');
+      const lbl  = row2.querySelector('.bar-pct');
+      const pc = pct>=30?'#1d8348':pct>=15?'#1a3c8f':pct>=8?'#b7860b':'#2c3a55';
+      if (fill) fill.style.width = Math.min(pct, 100)+'%';
+      if (lbl)  { lbl.textContent = pct+'%'; lbl.style.color = pc; }
+    });
+  }
+}
 </script>
 </body>
 </html>
